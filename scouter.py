@@ -7,7 +7,6 @@ import PyPDF2
 from rich import print
 
 # Const. Vars
-TEST_HEADER = "European League of Football - Game Report"
 PATH_PDF = "data/raw/stats_ssms2404.pdf"
 PATH_JSON = "data/interim/stats_ssms2404.json"
 CALL_COUNTS = {}
@@ -26,7 +25,19 @@ def log_function_name(func):
     return wrapper
 
 
-@log_function_name
+def _is_letter_dominant(string: str) -> bool:
+    letters = sum(c.isalpha() for c in string)
+    digits = sum(c.isdigit() for c in string)
+    special_chars = sum(not c.isalnum() for c in string)
+
+    return letters > (digits + special_chars)
+
+
+#######################################################
+#########                 IO                  #########
+#######################################################
+
+
 def extract_text_from_pdf(pdf_path):
     with open(pdf_path, "rb") as file:
         reader = PyPDF2.PdfReader(file)
@@ -36,7 +47,27 @@ def extract_text_from_pdf(pdf_path):
     return text_per_page
 
 
-@log_function_name
+def save_dict_to_json(data: dict, file_path: str, indent: int = 4):
+    """
+    Speichert ein Python-Dictionary als JSON-Datei.
+
+    :param data: Das Dictionary, das gespeichert werden soll.
+    :param file_path: Der Pfad zur JSON-Datei.
+    :param indent: Anzahl der Leerzeichen für die Formatierung (Default: 4).
+    """
+    try:
+        with open(file_path, "w", encoding="utf-8") as json_file:
+            json.dump(data, json_file, indent=indent, ensure_ascii=False)
+        print(f"Datei erfolgreich gespeichert: {file_path}")
+    except Exception as e:
+        print(f"Fehler beim Speichern der Datei: {e}")
+
+
+#######################################################
+#########               Parse                 #########
+#######################################################
+
+
 def parse_officials(officials_string):
     # Aufteilen des Strings in Zeilen
     lines = officials_string.strip().split("\n")
@@ -60,7 +91,6 @@ def parse_officials(officials_string):
     return officials_dict
 
 
-@log_function_name
 def parse_scoreboard(string: str):
     data = string.strip().split("\n")
     # Die ersten 6 Werte als Schlüssel
@@ -96,7 +126,6 @@ def parse_scoreboard(string: str):
     return scoreboard
 
 
-@log_function_name
 def _parse_metadata(meta_string: str, weather_string: str):
     metadata = {}
 
@@ -129,26 +158,14 @@ def _parse_metadata(meta_string: str, weather_string: str):
     return metadata
 
 
-@log_function_name
-def is_statistic_line(line):
-    # Zähle die Buchstaben, Zahlen und Sonderzeichen
-    letters = sum(c.isalpha() for c in line)
-    digits = sum(c.isdigit() for c in line)
-    special_chars = sum(not c.isalnum() for c in line)
-
-    # Überprüfe, ob es mehr Buchstaben als Zahlen oder Sonderzeichen gibt
-    return letters > digits + special_chars
-
-
-@log_function_name
-def extract_statistics(string: str):
+def extract_team_stats(string: str):
     data = string.split("\n")[8:]
     statistics = []
     stats = []
     for line in data:
         line = line.strip()
 
-        if is_statistic_line(line):
+        if _is_letter_dominant(line):
 
             if stats:
                 statistics.append(stats)
@@ -156,15 +173,14 @@ def extract_statistics(string: str):
 
             stats.append(line)
 
-        elif not is_statistic_line(line):
+        elif not _is_letter_dominant(line):
 
             stats.append(line)
 
     return statistics
 
 
-@log_function_name
-def convert_to_dicts(data):
+def parse_team_stats(data):
     result = []
 
     for entry in data:
@@ -188,10 +204,34 @@ def convert_to_dicts(data):
     return result
 
 
-@log_function_name
-def create_dicts_from_list(
+def parse_drives(drive: str) -> list:
+    clean_drive = "\n".join(drive.strip().split("\n")[8:-8])
+    header = "Down&Distance\nYardLine\nDetails\n"
+    return parse_table_data(header + clean_drive, 4)
+
+
+def parse_table_data(
     string: str, no_columns: int, keys: list | None = None, offset: int | None = None
 ):
+    """
+    Parses a string containing tabular data into a list of dictionaries.
+
+    Parameters
+    ----------
+    data : str
+        The input string containing tabular data, with values separated by newlines.
+    num_columns : int
+        The number of columns in the table.
+    keys : list of str, optional
+        A list of column headers to use as dictionary keys. If None, the first `offset` rows are used.
+    offset : int, optional
+        The number of initial rows to use as keys. Defaults to `num_columns` if not provided.
+
+    Returns
+    -------
+    list of dict
+        A list of dictionaries representing the parsed table data, where each dictionary corresponds to a row.
+    """
     data = ("Index\n" + string.strip()).split("\n")
 
     if offset is None:
@@ -215,14 +255,11 @@ def create_dicts_from_list(
     return records
 
 
-@log_function_name
-def extract_drives(drive: str) -> list:
-    clean_drive = "\n".join(drive.strip().split("\n")[8:-8])
-    header = "Down&Distance\nYardLine\nDetails\n"
-    return create_dicts_from_list(header + clean_drive, 4)
+#######################################################
+#########                PAGES                #########
+#######################################################
 
 
-@log_function_name
 def parse_page_one(page_one: str, doc: dict) -> dict:
     meta, rest = page_one.split("Score by Quarters")
     score_quarters, rest = rest.split("Scoring Plays")
@@ -233,19 +270,17 @@ def parse_page_one(page_one: str, doc: dict) -> dict:
     doc["meta"] = _parse_metadata(meta, weather)
     doc["score_board"] = parse_scoreboard(score_quarters)
     doc["officials"] = parse_officials(officials)
-    doc["touchdowns"] = create_dicts_from_list(scoring_plays.split("Team")[1], 6)
-    doc["field_goals"] = create_dicts_from_list(field_goals.split("Team")[1], 6)
+    doc["touchdowns"] = parse_table_data(scoring_plays.split("Team")[1], 6)
+    doc["field_goals"] = parse_table_data(field_goals.split("Team")[1], 6)
     return doc
 
 
-@log_function_name
 def parse_page_two(page_two: str, doc: dict) -> dict:
-    temp = extract_statistics(page_two)
-    doc["team_stats"] = convert_to_dicts(temp)
+    team_stats = extract_team_stats(page_two)
+    doc["team_stats"] = parse_team_stats(team_stats)
     return doc
 
 
-@log_function_name
 def parse_page_three(page_three: str, doc: dict) -> dict:
     _, passing_visitors, rest = page_three.split("Passing")
     passing_home, rushing_visitors, rest = rest.split("Rushing")
@@ -257,38 +292,32 @@ def parse_page_three(page_three: str, doc: dict) -> dict:
         "receiving": {},
     }
 
-    doc["individual_stats"]["passing"]["visitors"] = create_dicts_from_list(
+    doc["individual_stats"]["passing"]["visitors"] = parse_table_data(
         passing_visitors, 10
     )
-    doc["individual_stats"]["passing"]["home"] = create_dicts_from_list(
-        passing_home, 10
-    )
+    doc["individual_stats"]["passing"]["home"] = parse_table_data(passing_home, 10)
 
-    doc["individual_stats"]["rushing"]["visitors"] = create_dicts_from_list(
+    doc["individual_stats"]["rushing"]["visitors"] = parse_table_data(
         rushing_visitors, 6
     )
-    doc["individual_stats"]["rushing"]["home"] = create_dicts_from_list(rushing_home, 6)
+    doc["individual_stats"]["rushing"]["home"] = parse_table_data(rushing_home, 6)
 
-    doc["individual_stats"]["receiving"]["visitors"] = create_dicts_from_list(
+    doc["individual_stats"]["receiving"]["visitors"] = parse_table_data(
         receiving_visitors, 6
     )
-    doc["individual_stats"]["receiving"]["home"] = create_dicts_from_list(
-        receiving_home, 6
-    )
+    doc["individual_stats"]["receiving"]["home"] = parse_table_data(receiving_home, 6)
     return doc
 
 
-@log_function_name
 def parse_page_four(page_four: str, doc: dict) -> dict:
     _, visitors, home = page_four.split("Defense")
 
     doc["defense_stats"] = {"visitors": {}, "home": {}}
-    doc["defense_stats"]["visitors"] = create_dicts_from_list(visitors, 13)
-    doc["defense_stats"]["home"] = create_dicts_from_list(home, 13)
+    doc["defense_stats"]["visitors"] = parse_table_data(visitors, 13)
+    doc["defense_stats"]["home"] = parse_table_data(home, 13)
     return doc
 
 
-@log_function_name
 def parse_page_five(page_five: str, doc: dict) -> dict:
     _, home, visitors = page_five.split("How Given")
     keys = [
@@ -307,17 +336,16 @@ def parse_page_five(page_five: str, doc: dict) -> dict:
     ]
 
     doc["drives"] = {"visitors": {}, "home": {}}
-    doc["drives"]["visitors"] = create_dicts_from_list(
+    doc["drives"]["visitors"] = parse_table_data(
         string=visitors, no_columns=12, offset=11, keys=keys
     )
-    doc["drives"]["home"] = create_dicts_from_list(
+    doc["drives"]["home"] = parse_table_data(
         string=home, no_columns=12, offset=11, keys=keys
     )
 
     return doc
 
 
-@log_function_name
 def parse_last_pages(pages: str, doc: dict) -> dict:
     last_sections = "\n".join(pages).split("Participation Report")
     participation_report_is_in = len(last_sections) == 3
@@ -330,10 +358,10 @@ def parse_last_pages(pages: str, doc: dict) -> dict:
         adj_home_pr_starter_string = "Last Name\nPosition\n#" + (home_pr.split("#")[1])
         adj_home_pr_bench_string = "Last Name\nPosition\n#" + (home_pr.split("#")[2])
 
-        doc["participation"]["home"]["starter"] = create_dicts_from_list(
+        doc["participation"]["home"]["starter"] = parse_table_data(
             adj_home_pr_starter_string, 4
         )
-        doc["participation"]["home"]["bench"] = create_dicts_from_list(
+        doc["participation"]["home"]["bench"] = parse_table_data(
             adj_home_pr_bench_string, 4
         )
 
@@ -343,10 +371,10 @@ def parse_last_pages(pages: str, doc: dict) -> dict:
         adj_visitors_pr_bench_string = "Last Name\nPosition\n#" + (
             visitors_pr.split("#")[2]
         )
-        doc["participation"]["visitors"]["starter"] = create_dicts_from_list(
+        doc["participation"]["visitors"]["starter"] = parse_table_data(
             adj_visitors_pr_starter_string, 4
         )
-        doc["participation"]["visitors"]["bench"] = create_dicts_from_list(
+        doc["participation"]["visitors"]["bench"] = parse_table_data(
             adj_visitors_pr_bench_string, 4
         )
     else:
@@ -357,61 +385,32 @@ def parse_last_pages(pages: str, doc: dict) -> dict:
     doc["drives"] = {}
 
     for index, drive in enumerate(drive_list[1:], start=1):
-        doc["drives"][f"Drive {str(index).zfill(2)}"] = extract_drives(drive)
+        doc["drives"][f"Drive {str(index).zfill(2)}"] = parse_drives(drive)
 
     return doc
 
 
-@log_function_name
-def save_dict_to_json(data: dict, file_path: str, indent: int = 4):
-    """
-    Speichert ein Python-Dictionary als JSON-Datei.
-
-    :param data: Das Dictionary, das gespeichert werden soll.
-    :param file_path: Der Pfad zur JSON-Datei.
-    :param indent: Anzahl der Leerzeichen für die Formatierung (Default: 4).
-    """
-    try:
-        with open(file_path, "w", encoding="utf-8") as json_file:
-            json.dump(data, json_file, indent=indent, ensure_ascii=False)
-        print(f"Datei erfolgreich gespeichert: {file_path}")
-    except Exception as e:
-        print(f"Fehler beim Speichern der Datei: {e}")
-
-
 def main():
     pages = extract_text_from_pdf(PATH_PDF)
-
-    page_one = pages[0]
-    page_two = pages[1]
-    page_three = pages[2]
-    page_four = pages[3]
-    page_five = pages[4]
-    pages = pages[5:]
-
-    doc = dict()
-
-    # Page 1
-    doc = parse_page_one(page_one, doc)
-
-    # Page 2
-    doc = parse_page_two(page_two, doc)
-
-    # Page 3
-    doc = parse_page_three(page_three, doc)
-
-    # Page 4
-    doc = parse_page_four(page_four, doc)
-
-    # Page 5
-    doc = parse_page_five(page_five, doc)
-
-    # Page 6 and following
-    doc = parse_last_pages(pages, doc)
-
-    # save_dict_to_json(doc, PATH_JSON)
-    # print(doc)
-    print(CALL_COUNTS)
+    
+    doc = {}
+    
+    parsers = [
+        parse_page_one,
+        parse_page_two,
+        parse_page_three,
+        parse_page_four,
+        parse_page_five
+    ]
+    
+    # Parse the first five pages using corresponding functions
+    for i, parser in enumerate(parsers):
+        doc = parser(pages[i], doc)
+    
+    # Parse the remaining pages
+    doc = parse_last_pages(pages[5:], doc)
+    
+    save_dict_to_json(doc, PATH_JSON)
 
 
 # Program
