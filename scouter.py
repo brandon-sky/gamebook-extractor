@@ -7,8 +7,8 @@ import PyPDF2
 from rich import print
 
 # Const. Vars
-PATH_PDF = "data/raw/stats_ssms2404.pdf"
-PATH_JSON = "data/interim/stats_ssms2404.json"
+PATH_PDF = "data/raw/stats_pwss2402.pdf"
+PATH_JSON = "data/interim/stats_pwss2402.json"
 CALL_COUNTS = {}
 
 
