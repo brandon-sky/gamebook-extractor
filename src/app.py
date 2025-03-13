@@ -267,6 +267,15 @@ def add_odk_column(df, expected_letter, invert=False):
     df.loc[penalty_condition, 'ODK'] = 'S'
     return df
 
+
+def update_play_type(df):
+    df = df.copy()
+    for i in range(len(df)):
+        if df.loc[i, 'Play Type'] in ['Punt', 'Kickoff']:
+            if 'D' in df.loc[i+1:i+5, 'ODK'].values:
+                df.loc[i, 'Play Type'] = 'Punt Return' if df.loc[i, 'Play Type'] == 'Punt' else 'Kick Off Return'
+    return df
+
 def main():
 
     if "extract_button" not in st.session_state:
@@ -319,10 +328,12 @@ def main():
             
             with tab1:
                 df_home = add_odk_column(df, expected_letter, invert=False)
+                df_home = update_play_type(df_home)
                 st.dataframe(df_home)
 
             with tab2:
                 df_away = add_odk_column(df, expected_letter, invert=True)
+                df_away = update_play_type(df_away)
                 st.dataframe(df_away)
 
     else:
