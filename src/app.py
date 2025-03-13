@@ -256,6 +256,26 @@ def add_tackler_column(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def add_odk_column(df, expected_letter, invert=False):
+    df = df.copy()
+    o_char, d_char = ('D', 'O') if invert else ('O', 'D')
+    df.insert(0, 'ODK', df['Possession'].apply(lambda x: d_char if x.startswith(expected_letter) else o_char))
+    df.loc[df['Play Type'].isin(['Kickoff', 'PAT', 'Punt', 'Field Goal']), 'ODK'] = 'K'
+
+    penalty_condition = df['Details'].str.contains('penalty', case=False, na=False) \
+                        & ~df['Details'].str.contains('declined', case=False, na=False)
+    df.loc[penalty_condition, 'ODK'] = 'S'
+    return df
+
+
+def update_play_type(df):
+    df = df.copy()
+    for i in range(len(df)):
+        if df.loc[i, 'Play Type'] in ['Punt', 'Kickoff']:
+            if 'D' in df.loc[i+1:i+5, 'ODK'].values:
+                df.loc[i, 'Play Type'] = 'Punt Return' if df.loc[i, 'Play Type'] == 'Punt' else 'Kick Off Return'
+    return df
+
 def main():
 
     if "extract_button" not in st.session_state:
@@ -307,23 +327,19 @@ def main():
             tab1, tab2 = st.tabs([home, visitors])
             
             with tab1:
-                df_home = df.copy()
-
-                # Neue Spalte basierend auf der Bedingung einfügen
-                df_home.insert(0, 'ODK', df_home['Possession'].apply(lambda x: 'O' if x.startswith(expected_letter) else 'D'))
-                df_home.loc[df_home['Play Type'].isin(['Kickoff', 'PAT', 'Punt', 'Field Goal']), 'ODK'] = 'K'
+                df_home = add_odk_column(df, expected_letter, invert=False)
+                df_home = update_play_type(df_home)
                 st.dataframe(df_home)
-            
+
             with tab2:
-                # Neue Spalte basierend auf der Bedingung einfügen
-                df.insert(0, 'ODK', df['Possession'].apply(lambda x: 'D' if x.startswith(expected_letter) else 'O'))
-                df.loc[df['Play Type'].isin(['Kickoff', 'PAT', 'Punt', 'Field Goal']), 'ODK'] = 'K'
-                st.dataframe(df)
+                df_away = add_odk_column(df, expected_letter, invert=True)
+                df_away = update_play_type(df_away)
+                st.dataframe(df_away)
 
     else:
         st.write("Kein Text gefunden oder Fehler beim Extrahieren.")
 
-    return
+        return
 
 
 # Program

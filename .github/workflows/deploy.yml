@@ -1,0 +1,43 @@
+name: Deploy to Server
+
+on:
+  push:
+    branches:
+      - main  # Wird bei jedem Merge auf main ausgeführt
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+
+    env:
+      SERVICE_NAME: sat-saibot
+
+    steps:
+      - name: 🚀 Repository auschecken
+        uses: actions/checkout@v4  # Holt den Code aus dem Repo
+
+      - name: 🔑 SSH-Schlüssel einrichten
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -p ${{ secrets.SSH_PORT }} -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+
+      - name: 📂 Code per SSH auf Server kopieren (mit Port)
+        run: |
+          rsync -avz --delete -e "ssh -p ${{ secrets.SSH_PORT }}" ./ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/workspace/${{ env.SERVICE_NAME }}
+
+      - name: 🐳 Docker Image bauen und Container starten
+        run: |
+          ssh -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} '
+            cd ~/workspace/${{ env.SERVICE_NAME }} && \
+            docker build -t ${{ env.SERVICE_NAME }}-image . && \
+            docker container stop ${{ env.SERVICE_NAME }}-container || true && \
+            docker container rm ${{ env.SERVICE_NAME }}-container || true && \
+            docker run -d --name ${{ env.SERVICE_NAME }}-container -p 8502:8501 \
+              ${{ env.SERVICE_NAME }}-image
+          '
+
+      - name: ✅ Erfolgreich deployed
+        run: echo "Deployment erfolgreich! 🎉"
