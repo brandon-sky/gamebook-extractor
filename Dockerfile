@@ -28,4 +28,4 @@ COPY src/ ./src
 EXPOSE 8503
 
 # Befehl zum Starten der Streamlit-App mit der Config
-CMD ["poetry", "run", "streamlit", "run", "src/app.py", "--server.port=8501", "--server.address=0.0.0.0"]
+CMD ["poetry", "run", "streamlit", "run", "src/app.py", "--server.port=8503", "--server.address=0.0.0.0"]
