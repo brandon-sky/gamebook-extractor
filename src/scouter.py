@@ -297,7 +297,7 @@ def process_game_log(log_list):
 
         # Falls Down & Distance fehlt, aber @ kommt direkt nach Team, füge Dummy ein
         if "Down&Distance" not in temp_group and entry.startswith("@"):
-            temp_group["Down&Distance"] = "DUMMY&0"
+            temp_group["Down&Distance"] = "0&0"
 
         # Down & Distance erkennen
         if pattern.match(entry) and "Down&Distance" not in temp_group:
