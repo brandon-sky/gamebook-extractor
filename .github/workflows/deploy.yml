@@ -35,7 +35,7 @@ jobs:
             docker build -t ${{ env.SERVICE_NAME }}-image . && \
             docker container stop ${{ env.SERVICE_NAME }}-container || true && \
             docker container rm ${{ env.SERVICE_NAME }}-container || true && \
-            docker run -d --name ${{ env.SERVICE_NAME }}-container -p 8502:8501 \
+            docker run -d --name ${{ env.SERVICE_NAME }}-container -p 8503:8501 \
               ${{ env.SERVICE_NAME }}-image
           '
 
