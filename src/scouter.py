@@ -1,7 +1,9 @@
 # Dependencies
-from datetime import datetime, timedelta
 import functools
 import json
+import logging
+
+import re
 
 import PyPDF2
 from rich import print
@@ -10,6 +12,14 @@ from rich import print
 PATH_PDF = "data/raw/stats_pwss2402.pdf"
 PATH_JSON = "data/interim/stats_pwss2402.json"
 CALL_COUNTS = {}
+
+# Logger
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+file_handler = logging.FileHandler(f"{__name__}.log")
+formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+file_handler.setFormatter(formatter)
+logger.addHandler(file_handler)
 
 
 # Funcs
@@ -204,10 +214,136 @@ def parse_team_stats(data):
     return result
 
 
+def remove_play_by_play_summary(text: str) -> str:
+    """
+    Entfernt die Zeile mit "Play-by-Play Summary" und die davorstehende Zeile aus dem gegebenen Text.
+
+    :param text: Eingabetext als String
+    :return: Bereinigter Text als String
+    """
+    lines = text.split("\n")
+    filtered_lines = []
+
+    i = 0
+    while i < len(lines):
+        if i > 0 and "Play-by-Play Summary" in lines[i]:
+            # Entferne die Zeile vor "Play-by-Play Summary" und die Zeile selbst
+            filtered_lines.pop()
+            i += 1
+        else:
+            filtered_lines.append(lines[i])
+        i += 1
+
+    return "\n".join(filtered_lines)
+
+
+def remove_drive_header_and_footer(drive: str) -> str:
+    """
+    Entfernt die Header und Footer Zeilen, die den Drive zusammenfassen.
+
+    :param text: Eingabetext als String
+    :return: Bereinigter Text als String
+    """
+    num_lines_header = 8
+    num_lines_footer = 8
+    return "\n".join(drive.strip().split("\n")[num_lines_header:-num_lines_footer])
+
+
+def parse_football_plays(text: str):
+    """
+    Parst einen Text in eine Liste von Abschnitten basierend auf dem Muster:
+    - Zwei Großbuchstaben, dann neue Zeile
+    - Ein String mit "&", dann neue Zeile
+    - Ein String mit "@" beginnend, dann neue Zeile
+    - Ein String, solange bis wieder eine neue Zeile mit zwei Großbuchstaben kommt
+
+    :param text: Der Eingabetext als String
+    :return: Liste von extrahierten Abschnitten
+    """
+    pattern = re.compile(
+        r"""
+        ([A-Z]{2})\n         # Zwei Großbuchstaben gefolgt von einer neuen Zeile
+        (.+?&)\n          # Ein beliebiger String mit '&', dann neue Zeile
+        (@.+?)\n        # Ein String, der mit '@' beginnt, dann neue Zeile
+        ((?:.+\n)+?)  # Mehrere Zeilen bis zur nächsten Übereinstimmung
+        (?=[A-Z]{2}\n|$)  # Stopp bei zwei Großbuchstaben oder Ende des Textes
+    """,
+        re.VERBOSE,
+    )
+
+    matches = pattern.findall(text)
+
+    result = ["\n".join(match) for match in matches]
+    return result
+
+
+def process_game_log(log_list):
+    processed = []
+    temp_group = {}
+    pattern = re.compile(r"^\d+&\d+$")  # Muster für Down & Distance (z. B. 1&10)
+    team_pattern = re.compile(
+        r"^\s*([A-Z]{2})$"
+    )  # Erkennung von zweistelligen Team-Codes mit optionalem Leerzeichen davor
+
+    i = 0
+    while i < len(log_list):
+        entry = log_list[i].strip()  # Leerzeichen entfernen
+
+        # Falls die Gruppe leer ist, starte sie mit einem 2-stelligen Team-Code
+        if not temp_group and team_pattern.match(entry):
+            temp_group["Index"] = team_pattern.match(entry).group(1)
+            i += 1
+            continue
+
+        # Falls Down & Distance fehlt, aber @ kommt direkt nach Team, füge Dummy ein
+        if "Down&Distance" not in temp_group and entry.startswith("@"):
+            temp_group["Down&Distance"] = "DUMMY&0"
+
+        # Down & Distance erkennen
+        if pattern.match(entry) and "Down&Distance" not in temp_group:
+            temp_group["Down&Distance"] = entry
+
+        # Yardline mit @ erkennen
+        elif entry.startswith("@") and "Yard Line" not in temp_group:
+            temp_group["YardLine"] = entry
+
+        # Falls Spielbeschreibung kommt (oder weitere aneinanderhängende), hinzufügen
+        elif "Details" in temp_group or len(temp_group) >= 3:
+            clean_entry = re.sub(
+                r"\s+[A-Z]{2}$", "", entry
+            )  # Entferne nachgestellte Team-Kürzel
+            temp_group["Details"] = (
+                temp_group.get("Details", "") + " " + clean_entry
+                if "Details" in temp_group
+                else clean_entry
+            )
+
+            # Prüfen, ob nächster Eintrag auch eine Spielbeschreibung ist
+            if (
+                i + 1 < len(log_list)
+                and not log_list[i + 1].startswith("@")
+                and not pattern.match(log_list[i + 1])
+                and not team_pattern.match(log_list[i + 1])
+            ):
+                i += 1  # Überspringen, weil zusammengehörig
+                temp_group["Details"] += " " + log_list[i].strip()
+
+        # Falls die Gruppe vollständig ist, speichern und zurücksetzen
+        if len(temp_group) >= 4:
+            processed.append(temp_group)
+            temp_group = {}
+
+        i += 1
+
+    return processed
+
+
 def parse_drives(drive: str) -> list:
-    clean_drive = "\n".join(drive.strip().split("\n")[8:-8])
-    header = "Down&Distance\nYardLine\nDetails\n"
-    return parse_table_data(header + clean_drive, 4)
+    drive = remove_play_by_play_summary(drive)
+    drive = remove_drive_header_and_footer(drive)
+
+    game_logs = process_game_log(drive.split("\n"))
+    return game_logs
 
 
 def parse_table_data(
@@ -233,7 +369,7 @@ def parse_table_data(
         A list of dictionaries representing the parsed table data, where each dictionary corresponds to a row.
     """
     data = ("Index\n" + string.strip()).split("\n")
-
+    logger.info(data)
     if offset is None:
         offset = no_columns
 
@@ -385,6 +521,7 @@ def parse_last_pages(pages: str, doc: dict) -> dict:
     doc["drives"] = {}
 
     for index, drive in enumerate(drive_list[1:], start=1):
+        logger.info(f"{index = }")
         doc["drives"][f"Drive {str(index).zfill(2)}"] = parse_drives(drive)
 
     return doc
@@ -392,24 +529,24 @@ def parse_last_pages(pages: str, doc: dict) -> dict:
 
 def main():
     pages = extract_text_from_pdf(PATH_PDF)
-    
+
     doc = {}
-    
+
     parsers = [
         parse_page_one,
         parse_page_two,
         parse_page_three,
         parse_page_four,
-        parse_page_five
+        parse_page_five,
     ]
-    
+
     # Parse the first five pages using corresponding functions
     for i, parser in enumerate(parsers):
         doc = parser(pages[i], doc)
-    
+
     # Parse the remaining pages
     doc = parse_last_pages(pages[5:], doc)
-    
+
     save_dict_to_json(doc, PATH_JSON)
 
 
