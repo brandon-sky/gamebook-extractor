@@ -22,7 +22,7 @@ RUN poetry install --no-root --no-interaction --no-ansi
 
 # Kopiere den gesamten Code inklusive der Streamlit-Config
 COPY src/ ./src
-COPY .streamlit/ ./.streamlit
+# COPY .streamlit/ ./.streamlit
 
 # Setze den Port für Streamlit
 EXPOSE 8501
