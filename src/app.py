@@ -59,7 +59,7 @@ def dict_to_dataframe(data: dict) -> pd.DataFrame:
 
     # Spalte "Drive" an den Anfang setzen
     df = df[["Drive"] + [col for col in df.columns if col != "Drive"]]
-
+    df.rename(columns={"Drive": "SERIES"}, inplace=True)
     return df
 
 
@@ -70,7 +70,7 @@ def split_down_distance(df: pd.DataFrame) -> pd.DataFrame:
     :param df: Pandas DataFrame mit einer Spalte "Down&Distance"
     :return: DataFrame mit zusätzlichen Spalten "Down" und "Distance" ohne "Down&Distance"
     """
-    df[["Down", "Distance"]] = df["Down&Distance"].str.split("&", expand=True)
+    df[["DN", "DIST"]] = df["Down&Distance"].str.split("&", expand=True)
     df.drop(columns=["Down&Distance"], inplace=True)
     return df
 
@@ -95,6 +95,7 @@ def transform_yardline(df: pd.DataFrame) -> pd.DataFrame:
         return row["YardLine"]
 
     df["YardLine"] = df.apply(convert_yardline, axis=1)
+    df.rename(columns={"YardLine": "YARD LN"}, inplace=True)
     return df
 
 
@@ -106,7 +107,7 @@ def rename_and_reorder_columns(df: pd.DataFrame) -> pd.DataFrame:
     :return: DataFrame mit umbenannten und neu geordneten Spalten
     """
     df.rename(columns={"Index": "Possession"}, inplace=True)
-    column_order = ["Drive", "Possession", "YardLine", "Down", "Distance", "Details"]
+    column_order = ["SERIES", "YARD LN", "DN", "DIST", "Possession", "Details"]
     df = df[column_order]
     return df
 
