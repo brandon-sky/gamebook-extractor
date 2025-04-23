@@ -59,7 +59,7 @@ def dict_to_dataframe(data: dict) -> pd.DataFrame:
 
     # Spalte "Drive" an den Anfang setzen
     df = df[["Drive"] + [col for col in df.columns if col != "Drive"]]
-
+    df.rename(columns={"Drive": "SERIES"}, inplace=True)
     return df
 
 
@@ -70,7 +70,7 @@ def split_down_distance(df: pd.DataFrame) -> pd.DataFrame:
     :param df: Pandas DataFrame mit einer Spalte "Down&Distance"
     :return: DataFrame mit zusätzlichen Spalten "Down" und "Distance" ohne "Down&Distance"
     """
-    df[["Down", "Distance"]] = df["Down&Distance"].str.split("&", expand=True)
+    df[["DN", "DIST"]] = df["Down&Distance"].str.split("&", expand=True)
     df.drop(columns=["Down&Distance"], inplace=True)
     return df
 
@@ -95,6 +95,7 @@ def transform_yardline(df: pd.DataFrame) -> pd.DataFrame:
         return row["YardLine"]
 
     df["YardLine"] = df.apply(convert_yardline, axis=1)
+    df.rename(columns={"YardLine": "YARD LN"}, inplace=True)
     return df
 
 
@@ -106,9 +107,28 @@ def rename_and_reorder_columns(df: pd.DataFrame) -> pd.DataFrame:
     :return: DataFrame mit umbenannten und neu geordneten Spalten
     """
     df.rename(columns={"Index": "Possession"}, inplace=True)
-    column_order = ["Drive", "Possession", "YardLine", "Down", "Distance", "Details"]
+    column_order = ["SERIES", "YARD LN", "DN", "DIST", "Possession", "Details"]
     df = df[column_order]
     return df
+
+
+def add_play_column(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Fügt eine Spalte "PLAY #" zu einem DataFrame hinzu, die mit 1 beginnt und mit jeder Zeile hochgezählt wird.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Das Eingabe-DataFrame, dem die neue Spalte hinzugefügt werden soll.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Ein neues DataFrame mit der hinzugefügten Spalte "PLAY #".
+    """
+    df_copy = df.copy()  # Erstelle eine Kopie des DataFrames
+    df_copy.insert(0, "PLAY #", range(1, len(df_copy) + 1))
+    return df_copy
 
 
 def add_play_type(df: pd.DataFrame) -> pd.DataFrame:
@@ -258,23 +278,35 @@ def add_tackler_column(df: pd.DataFrame) -> pd.DataFrame:
 
 def add_odk_column(df, expected_letter, invert=False):
     df = df.copy()
-    o_char, d_char = ('D', 'O') if invert else ('O', 'D')
-    df.insert(0, 'ODK', df['Possession'].apply(lambda x: d_char if x.startswith(expected_letter) else o_char))
-    df.loc[df['Play Type'].isin(['Kickoff', 'PAT', 'Punt', 'Field Goal']), 'ODK'] = 'K'
+    o_char, d_char = ("O", "D") if invert else ("D", "O")
+    df.insert(
+        1,
+        "ODK",
+        df["Possession"].apply(
+            lambda x: d_char if x.startswith(expected_letter) else o_char
+        ),
+    )
+    df.loc[df["Play Type"].isin(["Kickoff", "PAT", "Punt", "Field Goal"]), "ODK"] = "K"
 
-    penalty_condition = df['Details'].str.contains('penalty', case=False, na=False) \
-                        & ~df['Details'].str.contains('declined', case=False, na=False)
-    df.loc[penalty_condition, 'ODK'] = 'S'
+    penalty_condition = df["Details"].str.contains(
+        "penalty", case=False, na=False
+    ) & ~df["Details"].str.contains("declined", case=False, na=False)
+    df.loc[penalty_condition, "ODK"] = "S"
     return df
 
 
 def update_play_type(df):
     df = df.copy()
     for i in range(len(df)):
-        if df.loc[i, 'Play Type'] in ['Punt', 'Kickoff']:
-            if 'D' in df.loc[i+1:i+5, 'ODK'].values:
-                df.loc[i, 'Play Type'] = 'Punt Return' if df.loc[i, 'Play Type'] == 'Punt' else 'Kick Off Return'
+        if df.loc[i, "Play Type"] in ["Punt", "Kickoff"]:
+            if "D" in df.loc[i + 1 : i + 5, "ODK"].values:
+                df.loc[i, "Play Type"] = (
+                    "Punt Return"
+                    if df.loc[i, "Play Type"] == "Punt"
+                    else "Kick Off Return"
+                )
     return df
+
 
 def main():
 
@@ -312,6 +344,7 @@ def main():
                 df.pipe(split_down_distance)
                 .pipe(transform_yardline)
                 .pipe(rename_and_reorder_columns)
+                .pipe(add_play_column)
                 .pipe(add_play_type)
                 .pipe(add_result_column)
                 .pipe(add_passer_column)
@@ -323,9 +356,9 @@ def main():
             visitors = doc.get("score_board")[0].get("Team")
             home = doc.get("score_board")[1].get("Team")
             expected_letter = home[0].upper()
-            
+
             tab1, tab2 = st.tabs([home, visitors])
-            
+
             with tab1:
                 df_home = add_odk_column(df, expected_letter, invert=False)
                 df_home = update_play_type(df_home)
