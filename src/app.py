@@ -277,7 +277,7 @@ def add_tackler_column(df: pd.DataFrame) -> pd.DataFrame:
 
 def add_odk_column(df, expected_letter, invert=False):
     df = df.copy()
-    o_char, d_char = ("D", "O") if invert else ("O", "D")
+    o_char, d_char = ("O", "D") if invert else ("D", "O")
     df.insert(
         1,
         "ODK",
