@@ -2,9 +2,10 @@
 import functools
 import json
 import logging
-
 import re
 
+
+from pydantic import BaseModel, field_validator, ValidationError
 import PyPDF2
 from rich import print
 
@@ -20,6 +21,43 @@ file_handler = logging.FileHandler(f"{__name__}.log")
 formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
 file_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
+
+# Dataclass
+
+
+class GameEvent(BaseModel):
+    possession: str
+    downanddistance: str
+    yardline: str
+    details: str
+
+    @field_validator("possession")
+    def validate_possession(cls, v):
+        if not re.match(r"^[A-Z]{2}$", v):
+            raise ValueError("Possession must be two uppercase letters")
+        return v
+
+    @field_validator("downanddistance")
+    def validate_down_and_distance(cls, v):
+        if v and not re.match(r"^\d+&\d+$", v):
+            raise ValueError('Down and distance must be in the format "X&Y"')
+        return v
+
+    @field_validator("yardline")
+    def validate_yardline(cls, v):
+        if v and not re.match(r"^@ [A-Z]+\d+$", v):
+            raise ValueError(
+                'Yardline must start with "@" followed by a team and number'
+            )
+        return v
+
+    def dump_model(self):
+        return {
+            "Index": self.possession,
+            "Down&Distance": self.downanddistance,
+            "YardLine": self.yardline,
+            "Details": self.details,
+        }
 
 
 # Funcs
@@ -76,6 +114,34 @@ def save_dict_to_json(data: dict, file_path: str, indent: int = 4):
 #######################################################
 #########               Parse                 #########
 #######################################################
+
+
+def parse_from_str_to_drive(input_string: str):
+    # Entferne wiederholte Großbuchstaben (z.B. "VV VV" -> "VV")
+    input_string = re.sub(r"(\b[A-Z]{2}\b)(?=\s+\1)", "", input_string).strip()
+
+    # Definiere das Muster für die Analyse
+    pattern = r"([A-Z]{2})\s*([^@]*)?\s*(@\s*[A-Z]+\d+)\s*(.*?)(?=\s*[A-Z]{2}|$)"
+
+    matches = re.findall(pattern, input_string)
+
+    results = []
+    for match in matches:
+        possession = match[0]
+        down_and_distance = match[1].strip() if match[1] else ""
+        yardline = match[2]
+        details = match[3].strip()
+
+        # Erstelle das Pydantic-Modell mit Validierung
+        result = GameEvent(
+            possession=possession,
+            downanddistance=down_and_distance,
+            yardline=yardline,
+            details=details,
+        )
+        results.append(result.dump_model())
+
+    return results
 
 
 def parse_officials(officials_string):
@@ -519,6 +585,9 @@ def parse_last_pages(pages: str, doc: dict) -> dict:
     drive_list = drives.split("Drive Start")
 
     doc["drives"] = {}
+
+    drive_0_str = " ".join(drive_list[0].split("\n")[1:])
+    doc["drives"]["Drive 00"] = parse_from_str_to_drive(drive_0_str)
 
     for index, drive in enumerate(drive_list[1:], start=1):
         logger.info(f"{index = }")
