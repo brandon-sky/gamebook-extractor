@@ -9,6 +9,8 @@ from pydantic import BaseModel, field_validator, ValidationError
 import PyPDF2
 from rich import print
 
+from models.PlayEvent import GameEvent
+
 # Const. Vars
 PATH_PDF = "data/raw/stats_pwss2402.pdf"
 PATH_JSON = "data/interim/stats_pwss2402.json"
@@ -21,44 +23,6 @@ file_handler = logging.FileHandler(f"{__name__}.log")
 formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
 file_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
-
-# Dataclass
-
-
-class GameEvent(BaseModel):
-    possession: str
-    downanddistance: str
-    yardline: str
-    details: str
-
-    @field_validator("possession")
-    def validate_possession(cls, v):
-        if not re.match(r"^[A-Z]{2}$", v):
-            raise ValueError("Possession must be two uppercase letters")
-        return v
-
-    @field_validator("downanddistance")
-    def validate_down_and_distance(cls, v):
-        if v and not re.match(r"^\d+&\d+$", v):
-            raise ValueError('Down and distance must be in the format "X&Y"')
-        return v
-
-    @field_validator("yardline")
-    def validate_yardline(cls, v):
-        if v and not re.match(r"^@ [A-Z]+\d+$", v):
-            raise ValueError(
-                'Yardline must start with "@" followed by a team and number'
-            )
-        return v
-
-    def dump_model(self):
-        return {
-            "Index": self.possession,
-            "Down&Distance": self.downanddistance,
-            "YardLine": self.yardline,
-            "Details": self.details,
-        }
-
 
 # Funcs
 def log_function_name(func):
