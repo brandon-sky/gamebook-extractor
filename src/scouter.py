@@ -79,13 +79,86 @@ def save_dict_to_json(data: dict, file_path: str, indent: int = 4):
 #########               Parse                 #########
 #######################################################
 
+def remove_drive_start_info(drive: str) -> str:
+    """
+    Entfernt die ersten drei Key-Value-Paare aus dem Drive-String und stellt sicher, 
+    dass der bereinigte String mit zwei Großbuchstaben und einer Zahl&Zahl beginnt.
+
+    Diese Funktion sucht nach einem vordefinierten Muster am Anfang des Drive-Strings,
+    entfernt es und gibt den bereinigten String zurück. Wenn das Muster nicht gefunden wird, 
+    wird der ursprüngliche String zurückgegeben.
+
+    Parameters
+    ----------
+    drive : str
+        Der Input-Drive-String, der die Informationen enthält, die entfernt werden sollen.
+
+    Returns
+    -------
+    str
+        Der bereinigte Drive-String ohne die ersten drei Key-Value-Paare. 
+        Wenn das Muster nicht gefunden wird, wird der ursprüngliche String zurückgegeben.
+
+    Notes
+    -----
+    Diese Funktion erwartet, dass der Drive-String ein spezifisches Format hat, 
+    das zwei Großbuchstaben gefolgt von einer Zahl&Zahl am Anfang des bereinigten 
+    Strings enthält.
+    """
+    
+    # Regular Expression zum Finden der ersten drei Key-Value-Paare und deren Werte
+    pattern = r'^[A-Za-z\s]+(Spot:\s+\w+\s+Clock:\s+\d{2}:\d{2}\s+Drive:\s+\d+)\s*'
+    match = re.match(pattern, drive)
+
+    if match:
+        # Entfernen der erkannten Teile
+        cleaned_string = drive[match.end():].strip()
+        # Sicherstellen, dass der String mit zwei Großbuchstaben und einer Zahl&Zahl beginnt
+        cleaned_string = cleaned_string.lstrip()
+        cleaned_string = re.sub(r'^[^A-Z]*([A-Z]{2}\s*\d+&\d+)', r'\1', cleaned_string)
+        return cleaned_string
+    return drive.strip()
+
+
+def remove_drive_summary(drive: str) -> str:
+    """
+    Entfernt die Zusammenfassungsinformationen aus dem Drive-String.
+
+    Diese Funktion sucht nach einem vordefinierten Muster, das die 
+    Zusammenfassungsinformationen wie "Plays", "Yards", "TOP", 
+    und "SCORE" enthält, und entfernt diese aus dem gegebenen 
+    Drive-String. 
+
+    Parameters
+    ----------
+    drive : str
+        Der Input-Drive-String, der die Zusammenfassungsinformationen enthält, 
+        die entfernt werden sollen.
+
+    Returns
+    -------
+    str
+        Der bereinigte Drive-String ohne die Zusammenfassungsinformationen. 
+
+    Notes
+    -----
+    Diese Funktion erwartet, dass der Drive-String ein spezifisches Format 
+    hat, das die Zusammenfassungsinformationen in der beschriebenen Weise 
+    enthält.
+    """
+
+    # Regular Expression zum Finden der Summary und deren Werte
+    pattern = r'\s*Plays\s+\d+\s+Yards\s+\d+\s+TOP\s+\d{2}:\d{2}\s+SCORE\s*[\d-]*'
+    cleaned_string = re.sub(pattern, '', drive)
+    return cleaned_string.strip()
+
 
 def parse_from_str_to_drive(input_string: str):
     # Entferne wiederholte Großbuchstaben (z.B. "VV VV" -> "VV")
     input_string = re.sub(r"(\b[A-Z]{2}\b)(?=\s+\1)", "", input_string).strip()
 
     # Definiere das Muster für die Analyse
-    pattern = r"([A-Z]{2})\s*([^@]*)?\s*(@\s*[A-Z]+\d+)\s*(.*?)(?=\s*[A-Z]{2}|$)"
+    pattern = r"(?<=\s)([A-Z]{2,3})(?=\s)\s*([^@]*)?\s*(@\s*[A-Z]+\d+)\s*(.*?)(?=\s+[A-Z]{2,3}\s|$)"
 
     matches = re.findall(pattern, input_string)
 
@@ -550,12 +623,11 @@ def parse_last_pages(pages: str, doc: dict) -> dict:
 
     doc["drives"] = {}
 
-    drive_0_str = " ".join(drive_list[0].split("\n")[1:])
-    doc["drives"]["Drive 00"] = parse_from_str_to_drive(drive_0_str)
-
-    for index, drive in enumerate(drive_list[1:], start=1):
+    for index, drive in enumerate(drive_list):
         logger.info(f"{index = }")
-        doc["drives"][f"Drive {str(index).zfill(2)}"] = parse_drives(drive)
+        drive_str = " ".join(drive.split("\n"))
+        drive_str = remove_drive_summary(remove_drive_start_info(drive_str))
+        doc["drives"][f"Drive {str(index).zfill(2)}"] = parse_from_str_to_drive(drive_str)
 
     return doc
 
