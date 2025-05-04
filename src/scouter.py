@@ -594,20 +594,20 @@ def merge_lists(list1, list2):
         merged.append(f"{item1.strip()} {item2.strip()}")
     return merged
 
-def extract_entries(text, drive_no, quarter): #TODO: Zeilenumbrüche im Details Bereich
+def extract_entries(text, drive_no, quarter): #TODO: Zeilen in das entsprechende Format bringen
     pattern_drive_summary = r'\s*Plays\s+\d+\s+Yards\s+-?\d+\s+TOP\s+\d{2}:\d{2}\s+SCORE\s*[\d-]*'
     pattern = rf"(?<=\s)([A-Z]{{2,3}})(?=\s)\s*([^@]*)?\s*(@\s*[A-Z]+\d+)\s*(.*?)(?=\s+[A-Z]{{2,3}}\s|$|(?=.{0,29}$)|(?={pattern_drive_summary}))"
     
     entries = []
     
-    for match in re.finditer(pattern, text):
+    for match in re.finditer(pattern, text, re.DOTALL):
         entry = {
             'Quarter': quarter, 
             'Series': drive_no,
             'Index': match.group(1),
             'Down&Distance': match.group(2).strip() if match.group(2) else '',
             'YardLine': match.group(3),
-            'Details': match.group(4).strip()
+            'Details': match.group(4).strip().replace('\n', ' ')
         }
         entries.append(entry)
 
