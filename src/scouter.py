@@ -584,6 +584,42 @@ def parse_page_five(page_five: str, doc: dict) -> dict:
 
     return doc
 
+def extract_pattern(input_string, pattern):
+    matches = re.findall(pattern, input_string, re.MULTILINE)
+    return matches
+
+def merge_lists(list1, list2):
+    merged = []
+    for item1, item2 in zip(list1, list2):
+        merged.append(f"{item1.strip()} {item2.strip()}")
+    return merged
+
+def extract_entries(text, drive_no, quarter): #TODO: Zeilen in das entsprechende Format bringen
+    pattern_drive_summary = r'\s*Plays\s+\d+\s+Yards\s+-?\d+\s+TOP\s+\d{2}:\d{2}\s+SCORE\s*[\d-]*'
+    pattern = rf"(?<=\s)([A-Z]{{2,3}})(?=\s)\s*([^@]*)?\s*(@\s*[A-Z]+\d+)\s*(.*?)(?=\s+[A-Z]{{2,3}}\s|$|(?=.{0,29}$)|(?={pattern_drive_summary}))"
+    
+    entries = []
+    
+    for match in re.finditer(pattern, text, re.DOTALL):
+        entry = {
+            'Quarter': quarter, 
+            'Series': drive_no,
+            'Index': match.group(1),
+            'Down&Distance': match.group(2).strip() if match.group(2) else '',
+            'YardLine': match.group(3),
+            'Details': match.group(4).strip().replace('\n', ' ')
+        }
+        entries.append(entry)
+
+    return entries
+
+def extract_number(text):
+    pattern = r'\((\d+)\s+Quarter\)'
+    match = re.search(pattern, text)
+    
+    if match:
+        return match.group(1)  # Gibt die gefundene Zahl zurück
+    return None  # Gibt None zurück, wenn kein Match gefunden wurde
 
 def parse_last_pages(pages: str, doc: dict) -> dict:
     last_sections = "\n".join(pages).split("Participation Report")
@@ -619,16 +655,53 @@ def parse_last_pages(pages: str, doc: dict) -> dict:
     else:
         drives = last_sections[0]
 
-    drive_list = drives.split("Drive Start")
-
+    quarter_list = drives.split("Play-by-Play Summary")
     doc["drives"] = {}
+    drive_starts = []
+    drive_summary = []
+    previous_drive_no = None  # Variable - vorherige Drive-Nummer speichern
+    for quarter_no, quarter_str in enumerate(quarter_list[1:], start=1): 
+        pattern_drive_start = r'^[A-Za-z\s]+(Spot:\s+\w+\s+Clock:\s+\d{2}:\d{2}\s+Drive:\s+\d+)\s*'  
+        pattern_split_drive_start = r'Spot:\s+\w+\s+Clock:\s+\d{2}:\d{2}\s+Drive:\s+'
+        pattern_drive_summary = r'\s*Plays\s+\d+\s+Yards\s+-?\d+\s+TOP\s+\d{2}:\d{2}\s+SCORE\s*[\d-]*'
+        drive_list = re.split(pattern_split_drive_start, quarter_str)
+        for drive_index, drive in enumerate(drive_list):
+            if drive_index == 0:  # Nur für den ersten Eintrag
+                if quarter_no == 1:
+                    drive_no = ""  # Für Quarter 1
+                elif quarter_no == 3:
+                    drive_no = ""  # Für Quarter 3
+                else:
+                    drive_no = previous_drive_no if previous_drive_no is not None else drive[:2].strip()  # Übernahme der vorherigen Drive-Nummer für Quarter 2 und 4
+            else:
+                drive_no = drive[:2].strip()  # Den zweiten Wert verwenden
 
-    for index, drive in enumerate(drive_list):
-        logger.info(f"{index = }")
-        drive_str = " ".join(drive.split("\n"))
-        drive_str = remove_drive_summary(remove_drive_start_info(drive_str))
-        doc["drives"][f"Drive {str(index).zfill(2)}"] = parse_from_str_to_drive(drive_str)
+            # Speichern der aktuellen Drive-Nummer für die nächste Iteration
+            previous_drive_no = drive_no
 
+            print(f'Drive: {drive_no}'.center(79, "-"))
+            print(extract_entries(drive, quarter=quarter_no, drive_no=drive_no))
+
+        # for drive in drive_list:
+        #     drive_no = drive[:2].strip() # TODO: Fehler bei Quarterwechsel (1 auf 2, 3 auf 4) 
+        #     print(f'Drive: {drive_no}'.center(79, "-"))
+        #     print(extract_entries(drive, quarter=quarter_no, drive_no=drive_no))
+
+        matches_start = extract_pattern(quarter_str, pattern_drive_start)
+        matches_summary = extract_pattern(quarter_str, pattern_drive_summary)
+        drive_starts.extend(matches_start)
+        drive_summary.extend(matches_summary)
+
+        drive_list = quarter_str.split("Drive Start")
+        for quarter_no, drive in enumerate(drive_list):
+            logger.info(f"{quarter_no = }")
+            drive_str = " ".join(drive.split("\n"))
+            drive_str = remove_drive_summary(remove_drive_start_info(drive_str))
+            doc["drives"][f"Drive {str(quarter_no).zfill(2)}"] = parse_from_str_to_drive(drive_str)
+
+    merged_drives = merge_lists(drive_starts, drive_summary)
+    print(merged_drives)
+    
     return doc
 
 
