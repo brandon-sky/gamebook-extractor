@@ -659,15 +659,33 @@ def parse_last_pages(pages: str, doc: dict) -> dict:
     doc["drives"] = {}
     drive_starts = []
     drive_summary = []
+    previous_drive_no = None  # Variable - vorherige Drive-Nummer speichern
     for quarter_no, quarter_str in enumerate(quarter_list[1:], start=1): 
         pattern_drive_start = r'^[A-Za-z\s]+(Spot:\s+\w+\s+Clock:\s+\d{2}:\d{2}\s+Drive:\s+\d+)\s*'  
         pattern_split_drive_start = r'Spot:\s+\w+\s+Clock:\s+\d{2}:\d{2}\s+Drive:\s+'
         pattern_drive_summary = r'\s*Plays\s+\d+\s+Yards\s+-?\d+\s+TOP\s+\d{2}:\d{2}\s+SCORE\s*[\d-]*'
         drive_list = re.split(pattern_split_drive_start, quarter_str)
-        for drive in drive_list:
-            drive_no = drive[:2].strip() # TODO: Fehler bei Quarterwechsel (1 auf 2, 3 auf 4) 
+        for drive_index, drive in enumerate(drive_list):
+            if drive_index == 0:  # Nur für den ersten Eintrag
+                if quarter_no == 1:
+                    drive_no = ""  # Für Quarter 1
+                elif quarter_no == 3:
+                    drive_no = ""  # Für Quarter 3
+                else:
+                    drive_no = previous_drive_no if previous_drive_no is not None else drive[:2].strip()  # Übernahme der vorherigen Drive-Nummer für Quarter 2 und 4
+            else:
+                drive_no = drive[:2].strip()  # Den zweiten Wert verwenden
+
+            # Speichern der aktuellen Drive-Nummer für die nächste Iteration
+            previous_drive_no = drive_no
+
             print(f'Drive: {drive_no}'.center(79, "-"))
             print(extract_entries(drive, quarter=quarter_no, drive_no=drive_no))
+
+        # for drive in drive_list:
+        #     drive_no = drive[:2].strip() # TODO: Fehler bei Quarterwechsel (1 auf 2, 3 auf 4) 
+        #     print(f'Drive: {drive_no}'.center(79, "-"))
+        #     print(extract_entries(drive, quarter=quarter_no, drive_no=drive_no))
 
         matches_start = extract_pattern(quarter_str, pattern_drive_start)
         matches_summary = extract_pattern(quarter_str, pattern_drive_summary)
