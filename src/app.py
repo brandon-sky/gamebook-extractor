@@ -106,8 +106,8 @@ def rename_and_reorder_columns(df: pd.DataFrame) -> pd.DataFrame:
     :param df: Pandas DataFrame mit den ursprünglichen Spalten
     :return: DataFrame mit umbenannten und neu geordneten Spalten
     """
-    df.rename(columns={"Index": "Possession"}, inplace=True)
-    column_order = ["SERIES", "YARD LN", "DN", "DIST", "Possession", "Details"]
+    df.rename(columns={"Index": "Possession", "Quarter": "QTR"}, inplace=True)
+    column_order = ["QTR", "SERIES", "YARD LN", "DN", "DIST", "Possession", "Details"]
     df = df[column_order]
     return df
 
