@@ -17,7 +17,7 @@ PATH_JSON = "data/interim/stats_pwss2402.json"
 CALL_COUNTS = {}
 
 ## Patterns
-PATTERN_SPLIT_DRIVE = r'Spot:\s+\w+\s+Clock:\s+\d{2}:\d{2}\s+Drive:\s+'
+PATTERN_SPLIT_DRIVE = r"Spot:\s+\w+\s+Clock:\s+\d{2}:\d{2}\s+Drive:\s+"
 PATTERN_SPLIT_QUARTER = r"Play-by-Play Summary \([1-5] Quarter\)"
 
 # Logger
@@ -27,6 +27,7 @@ file_handler = logging.FileHandler(f"{__name__}.log")
 formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
 file_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
+
 
 # Funcs
 def log_function_name(func):
@@ -83,13 +84,14 @@ def save_dict_to_json(data: dict, file_path: str, indent: int = 4):
 #########               Parse                 #########
 #######################################################
 
+
 def remove_drive_start_info(drive: str) -> str:
     """
-    Entfernt die ersten drei Key-Value-Paare aus dem Drive-String und stellt sicher, 
+    Entfernt die ersten drei Key-Value-Paare aus dem Drive-String und stellt sicher,
     dass der bereinigte String mit zwei Großbuchstaben und einer Zahl&Zahl beginnt.
 
     Diese Funktion sucht nach einem vordefinierten Muster am Anfang des Drive-Strings,
-    entfernt es und gibt den bereinigten String zurück. Wenn das Muster nicht gefunden wird, 
+    entfernt es und gibt den bereinigten String zurück. Wenn das Muster nicht gefunden wird,
     wird der ursprüngliche String zurückgegeben.
 
     Parameters
@@ -100,26 +102,26 @@ def remove_drive_start_info(drive: str) -> str:
     Returns
     -------
     str
-        Der bereinigte Drive-String ohne die ersten drei Key-Value-Paare. 
+        Der bereinigte Drive-String ohne die ersten drei Key-Value-Paare.
         Wenn das Muster nicht gefunden wird, wird der ursprüngliche String zurückgegeben.
 
     Notes
     -----
-    Diese Funktion erwartet, dass der Drive-String ein spezifisches Format hat, 
-    das zwei Großbuchstaben gefolgt von einer Zahl&Zahl am Anfang des bereinigten 
+    Diese Funktion erwartet, dass der Drive-String ein spezifisches Format hat,
+    das zwei Großbuchstaben gefolgt von einer Zahl&Zahl am Anfang des bereinigten
     Strings enthält.
     """
-    
+
     # Regular Expression zum Finden der ersten drei Key-Value-Paare und deren Werte
-    pattern = r'^[A-Za-z\s]+(Spot:\s+\w+\s+Clock:\s+\d{2}:\d{2}\s+Drive:\s+\d+)\s*'
+    pattern = r"^[A-Za-z\s]+(Spot:\s+\w+\s+Clock:\s+\d{2}:\d{2}\s+Drive:\s+\d+)\s*"
     match = re.match(pattern, drive)
 
     if match:
         # Entfernen der erkannten Teile
-        cleaned_string = drive[match.end():].strip()
+        cleaned_string = drive[match.end() :].strip()
         # Sicherstellen, dass der String mit zwei Großbuchstaben und einer Zahl&Zahl beginnt
         cleaned_string = cleaned_string.lstrip()
-        cleaned_string = re.sub(r'^[^A-Z]*([A-Z]{2}\s*\d+&\d+)', r'\1', cleaned_string)
+        cleaned_string = re.sub(r"^[^A-Z]*([A-Z]{2}\s*\d+&\d+)", r"\1", cleaned_string)
         return cleaned_string
     return drive.strip()
 
@@ -128,32 +130,32 @@ def remove_drive_summary(drive: str) -> str:
     """
     Entfernt die Zusammenfassungsinformationen aus dem Drive-String.
 
-    Diese Funktion sucht nach einem vordefinierten Muster, das die 
-    Zusammenfassungsinformationen wie "Plays", "Yards", "TOP", 
-    und "SCORE" enthält, und entfernt diese aus dem gegebenen 
-    Drive-String. 
+    Diese Funktion sucht nach einem vordefinierten Muster, das die
+    Zusammenfassungsinformationen wie "Plays", "Yards", "TOP",
+    und "SCORE" enthält, und entfernt diese aus dem gegebenen
+    Drive-String.
 
     Parameters
     ----------
     drive : str
-        Der Input-Drive-String, der die Zusammenfassungsinformationen enthält, 
+        Der Input-Drive-String, der die Zusammenfassungsinformationen enthält,
         die entfernt werden sollen.
 
     Returns
     -------
     str
-        Der bereinigte Drive-String ohne die Zusammenfassungsinformationen. 
+        Der bereinigte Drive-String ohne die Zusammenfassungsinformationen.
 
     Notes
     -----
-    Diese Funktion erwartet, dass der Drive-String ein spezifisches Format 
-    hat, das die Zusammenfassungsinformationen in der beschriebenen Weise 
+    Diese Funktion erwartet, dass der Drive-String ein spezifisches Format
+    hat, das die Zusammenfassungsinformationen in der beschriebenen Weise
     enthält.
     """
 
     # Regular Expression zum Finden der Summary und deren Werte
-    pattern = r'\s*Plays\s+\d+\s+Yards\s+\d+\s+TOP\s+\d{2}:\d{2}\s+SCORE\s*[\d-]*'
-    cleaned_string = re.sub(pattern, '', drive)
+    pattern = r"\s*Plays\s+\d+\s+Yards\s+\d+\s+TOP\s+\d{2}:\d{2}\s+SCORE\s*[\d-]*"
+    cleaned_string = re.sub(pattern, "", drive)
     return cleaned_string.strip()
 
 
@@ -588,9 +590,11 @@ def parse_page_five(page_five: str, doc: dict) -> dict:
 
     return doc
 
+
 def extract_pattern(input_string, pattern):
     matches = re.findall(pattern, input_string, re.MULTILINE)
     return matches
+
 
 def merge_lists(list1, list2):
     merged = []
@@ -598,32 +602,37 @@ def merge_lists(list1, list2):
         merged.append(f"{item1.strip()} {item2.strip()}")
     return merged
 
-def extract_entries(text, drive_no, quarter): #TODO: Zeilen in das entsprechende Format bringen
-    pattern_drive_summary = r'\s*Plays\s+\d+\s+Yards\s+-?\d+\s+TOP\s+\d{2}:\d{2}\s+SCORE\s*[\d-]*'
+
+def extract_entries(text, drive_no, quarter):
+    pattern_drive_summary = (
+        r"\s*Plays\s+\d+\s+Yards\s+-?\d+\s+TOP\s+\d{2}:\d{2}\s+SCORE\s*[\d-]*"
+    )
     pattern = rf"(?<=\s)([A-Z]{{2,3}})(?=\s)\s*([^@]*)?\s*(@\s*[A-Z]+\d+)\s*(.*?)(?=\s+[A-Z]{{2,3}}\s|$|(?=.{0,29}$)|(?={pattern_drive_summary}))"
-    
+
     entries = []
-    
+
     for match in re.finditer(pattern, text, re.DOTALL):
         entry = {
-            'Quarter': quarter, 
-            'Series': drive_no,
-            'Index': match.group(1),
-            'Down&Distance': match.group(2).strip() if match.group(2) else '',
-            'YardLine': match.group(3),
-            'Details': match.group(4).strip().replace('\n', ' ')
+            "Quarter": quarter,
+            "Series": drive_no,
+            "Index": match.group(1),
+            "Down&Distance": match.group(2).strip() if match.group(2) else "",
+            "YardLine": match.group(3),
+            "Details": match.group(4).strip().replace("\n", " "),
         }
         entries.append(entry)
 
     return entries
 
+
 def extract_number(text):
-    pattern = r'\((\d+)\s+Quarter\)'
+    pattern = r"\((\d+)\s+Quarter\)"
     match = re.search(pattern, text)
-    
+
     if match:
         return match.group(1)  # Gibt die gefundene Zahl zurück
     return None  # Gibt None zurück, wenn kein Match gefunden wurde
+
 
 def get_drive_number(drive_index, quarter_no, drive, previous_drive_no):
     extracted_string = drive[:2].strip()
@@ -640,8 +649,9 @@ def get_drive_number(drive_index, quarter_no, drive, previous_drive_no):
             # drive_no = previous_drive_no if extracted_string is not None else drive[:2].strip()  # Übernahme der vorherigen Drive-Nummer für Quarter 2 und 4
     else:
         drive_no = drive[:2].strip()  # Den zweiten Wert verwenden
-    
+
     return drive_no
+
 
 def parse_last_pages(pages: str, doc: dict) -> dict:
     last_sections = "\n".join(pages).split("Participation Report")
@@ -681,13 +691,15 @@ def parse_last_pages(pages: str, doc: dict) -> dict:
     doc["drives"] = {}
     previous_drive_no = None  # Variable - vorherige Drive-Nummer speichern
 
-    for quarter_no, quarter_str in enumerate(quarter_list[1:], start=1): 
+    for quarter_no, quarter_str in enumerate(quarter_list[1:], start=1):
         drive_list = re.split(PATTERN_SPLIT_DRIVE, quarter_str)
 
         for drive_index, drive in enumerate(drive_list):
-            drive_no = get_drive_number(drive_index, quarter_no, drive, previous_drive_no)
+            drive_no = get_drive_number(
+                drive_index, quarter_no, drive, previous_drive_no
+            )
 
-            print(f'Drive: {drive_no}'.center(79, "-"))
+            print(f"Drive: {drive_no}".center(79, "-"))
 
             plays = extract_entries(drive, quarter=quarter_no, drive_no=drive_no)
 
@@ -695,7 +707,7 @@ def parse_last_pages(pages: str, doc: dict) -> dict:
 
             print(plays)
             doc["drives"][f"Drive {str(drive_no).zfill(2)}"] = plays
-    
+
     return doc
 
 
