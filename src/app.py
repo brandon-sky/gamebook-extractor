@@ -99,6 +99,24 @@ def transform_yardline(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def transform_down_distance_values(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Ersetzt leere Felder und "" in den angegebenen Spalten mit 0.
+
+    :param df: Pandas DataFrame
+    :param columns_to_replace: Liste der Spalten, in denen die Werte ersetzt werden sollen
+    :return: DataFrame mit ersetzten Werten in den angegebenen Spalten
+    """
+    
+    columns_to_replace = ["DN", "DIST"]
+
+    # Leere Felder und "" in den ausgewählten Spalten durch 0 ersetzen
+    df[columns_to_replace] = df[columns_to_replace].fillna(0)
+    df[columns_to_replace] = df[columns_to_replace].replace("", 0)
+
+    return df
+
+
 def rename_and_reorder_columns(df: pd.DataFrame) -> pd.DataFrame:
     """
     Umbenennung der Spalte "Index" in "Possession" und Neuanordnung der Spalten in der gewünschten Reihenfolge.
@@ -343,6 +361,7 @@ def main():
             df = (
                 df.pipe(split_down_distance)
                 .pipe(transform_yardline)
+                .pipe(transform_down_distance_values)
                 .pipe(rename_and_reorder_columns)
                 .pipe(add_play_column)
                 .pipe(add_play_type)
