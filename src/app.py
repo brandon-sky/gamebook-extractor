@@ -5,6 +5,7 @@ import PyPDF2
 import streamlit as st
 import pandas as pd
 
+from catalog.teams import NAMES
 from scouter import (
     parse_page_one,
     parse_page_two,
@@ -22,6 +23,10 @@ PARSERS = [
     parse_page_four,
     parse_page_five,
 ]
+
+# Column names
+COLUMN_PLAY_TYPE = "PLAY TYPE"
+COLUMN_POSSESION = "Possession"
 
 
 # Func
@@ -124,8 +129,8 @@ def rename_and_reorder_columns(df: pd.DataFrame) -> pd.DataFrame:
     :param df: Pandas DataFrame mit den ursprünglichen Spalten
     :return: DataFrame mit umbenannten und neu geordneten Spalten
     """
-    df.rename(columns={"Index": "Possession", "Quarter": "QTR"}, inplace=True)
-    column_order = ["QTR", "SERIES", "YARD LN", "DN", "DIST", "Possession", "Details"]
+    df.rename(columns={"Index": COLUMN_POSSESION, "Quarter": "QTR"}, inplace=True)
+    column_order = ["QTR", "SERIES", "YARD LN", "DN", "DIST", COLUMN_POSSESION, "Details"]
     df = df[column_order]
     return df
 
@@ -164,7 +169,7 @@ def add_play_type(df: pd.DataFrame) -> pd.DataFrame:
         elif "pass" in details_lower or "sacked" in details_lower:
             return "Pass"
         elif "field goal" in details_lower:
-            return "Field Goal"
+            return "FG"
         elif "punt" in details_lower:
             return "Punt"
         elif "timeout" in details_lower:
@@ -172,12 +177,12 @@ def add_play_type(df: pd.DataFrame) -> pd.DataFrame:
         elif "knee" in details_lower:
             return "Run"
         elif "kickoff" in details_lower:
-            return "Kickoff"
+            return "KO"
         elif "extra point" in details_lower:
-            return "PAT"
-        return "Other"
+            return "Extra Pt."
+        return None
 
-    df["Play Type"] = df["Details"].apply(categorize_play)
+    df[COLUMN_PLAY_TYPE] = df["Details"].apply(categorize_play)
     return df
 
 
@@ -300,11 +305,11 @@ def add_odk_column(df, expected_letter, invert=False):
     df.insert(
         1,
         "ODK",
-        df["Possession"].apply(
+        df[COLUMN_POSSESION].apply(
             lambda x: d_char if x.startswith(expected_letter) else o_char
         ),
     )
-    df.loc[df["Play Type"].isin(["Kickoff", "PAT", "Punt", "Field Goal"]), "ODK"] = "K"
+    df.loc[df[COLUMN_PLAY_TYPE].isin(["Kickoff", "PAT", "Punt", "Field Goal"]), "ODK"] = "K"
 
     penalty_condition = df["Details"].str.contains(
         "penalty", case=False, na=False
@@ -332,7 +337,7 @@ def add_gn_ls(df: pd.DataFrame) -> pd.DataFrame:
         current_yard_ln = df.loc[i, "YARD LN"]
         previous_yard_ln = df.loc[i - 1, "YARD LN"]
 
-        if df.loc[i, "Possession"] == df.loc[i - 1, "Possession"]:
+        if df.loc[i, COLUMN_POSSESION] == df.loc[i - 1, COLUMN_POSSESION]:
             # Umwandeln in positive Werte
             previous_value = abs(previous_yard_ln)
             current_value = abs(current_yard_ln)
@@ -390,17 +395,27 @@ def transform_gn_ls_by_odk(df: pd.DataFrame) -> pd.DataFrame:
     df.loc[df["ODK"] == "K", "GN/LS"] = 0
     return df
 
-
-def update_play_type(df):
-    df = df.copy()
-    for i in range(len(df)):
-        if df.loc[i, "Play Type"] in ["Punt", "Kickoff"]:
-            if "D" in df.loc[i + 1 : i + 5, "ODK"].values:
-                df.loc[i, "Play Type"] = (
-                    "Punt Return"
-                    if df.loc[i, "Play Type"] == "Punt"
-                    else "Kick Off Return"
-                )
+def transform_play_types(expected_team: str, df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Ändert bestimmte Werte in der Spalte "PLAY TYPE", 
+    wenn das Team in der Spalte "POSSESION" nicht mit expected_team übereinstimmt.
+    
+    :param expected_team: Das erwartete Team, nach dem gesucht wird
+    :param df: Pandas DataFrame
+    :return: DataFrame mit aktualisierten Werten in der Spalte "PLAY TYPE"
+    """
+    
+    # Mapping der PLAY TYPE Werte
+    play_type_mapping = {
+        "KO": "KO Rec",
+        "Punt": "Punt Rec",
+        "Extra Pt.": "Extra Pt. Block"
+    }
+    
+    # Bedingung anwenden und Mapping durchführen
+    mask = df[COLUMN_POSSESION] != expected_team
+    df.loc[mask, COLUMN_PLAY_TYPE] = df.loc[mask, COLUMN_PLAY_TYPE].replace(play_type_mapping)
+    
     return df
 
 
@@ -456,18 +471,21 @@ def main():
             home = doc.get("score_board")[1].get("Team")
             expected_letter = home[0].upper()
 
+            short_home = NAMES.get(home).get("short")
+            short_visitors = NAMES.get(visitors).get("short")
+
             tab1, tab2 = st.tabs([home, visitors])
 
             with tab1:
                 df_home = add_odk_column(df, expected_letter, invert=False)
-                # df_home = update_play_type(df_home)
                 df_home = transform_gn_ls_by_odk(df_home)
+                df_home = transform_play_types(short_home, df_home)
                 st.dataframe(df_home)
 
             with tab2:
                 df_away = add_odk_column(df, expected_letter, invert=True)
-                # df_away = update_play_type(df_away)
                 df_away = transform_gn_ls_by_odk(df_away)
+                df_away = transform_play_types(short_visitors, df_away)
                 st.dataframe(df_away)
 
     else:
