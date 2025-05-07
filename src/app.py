@@ -99,6 +99,24 @@ def transform_yardline(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def transform_down_distance_values(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Ersetzt leere Felder und "" in den angegebenen Spalten mit 0.
+
+    :param df: Pandas DataFrame
+    :param columns_to_replace: Liste der Spalten, in denen die Werte ersetzt werden sollen
+    :return: DataFrame mit ersetzten Werten in den angegebenen Spalten
+    """
+
+    columns_to_replace = ["DN", "DIST"]
+
+    # Leere Felder und "" in den ausgewählten Spalten durch 0 ersetzen
+    df[columns_to_replace] = df[columns_to_replace].fillna(0)
+    df[columns_to_replace] = df[columns_to_replace].replace("", 0)
+
+    return df
+
+
 def rename_and_reorder_columns(df: pd.DataFrame) -> pd.DataFrame:
     """
     Umbenennung der Spalte "Index" in "Possession" und Neuanordnung der Spalten in der gewünschten Reihenfolge.
@@ -295,6 +313,84 @@ def add_odk_column(df, expected_letter, invert=False):
     return df
 
 
+def add_gn_ls(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Berechnet die "GN/LS"-Spalte als Differenz der "YARD LN"-Spalte.
+
+    :param df: Pandas DataFrame mit den Spalten "YARD LN" und "GN/LS"
+    :return: DataFrame mit berechneter "GN/LS"-Spalte
+    """
+
+    # Sicherstellen, dass die "YARD LN"-Spalte numerisch ist
+    df["YARD LN"] = pd.to_numeric(df["YARD LN"], errors="coerce")
+
+    # Initialisieren der GN/LS-Spalte
+    df["GN/LS"] = 0
+
+    # Berechnung der GN/LS-Werte
+    for i in range(1, len(df)):
+        current_yard_ln = df.loc[i, "YARD LN"]
+        previous_yard_ln = df.loc[i - 1, "YARD LN"]
+
+        if df.loc[i, "Possession"] == df.loc[i - 1, "Possession"]:
+            # Umwandeln in positive Werte
+            previous_value = abs(previous_yard_ln)
+            current_value = abs(current_yard_ln)
+
+            # Berechnung der GN/LS-Werte
+            previous_adjusted = 50 - previous_value
+            current_adjusted = 50 - current_value
+
+            # GN/LS ist die Summe der beiden angepassten Werte
+            df.loc[i, "GN/LS"] = previous_adjusted + current_adjusted
+
+    return df
+
+
+def add_adjusted_yardline(df: pd.DataFrame) -> pd.DataFrame:
+    def adjust_yardlines(group):
+        """Passe die YARD_LN-Werte nach den angegebenen Regeln an."""
+        group["YARD_LN_ADJUSTED"] = group["YARD LN"].apply(
+            lambda x: -x if x < 0 else 50 - x + 50
+        )
+        return group
+
+    # Anwenden der Funktion auf jede Gruppe in 'SERIES'
+    df = df.groupby("SERIES").apply(adjust_yardlines)
+
+    # Ergebnis anzeigen
+    return df
+
+
+def transform_adjusted_yardline(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Berechnet die Differenz zwischen den Werten in einer bestimmten Spalte von Zeile zu Zeile.
+
+    :param df: Pandas DataFrame
+    :param column_name: Name der Spalte, für die die Differenz berechnet werden soll
+    :return: DataFrame mit einer neuen Spalte "Difference", die die berechneten Differenzen enthält
+    """
+
+    column_name = "YARD_LN_ADJUSTED"
+
+    # Sicherstellen, dass die angegebene Spalte numerisch ist
+    df[column_name] = pd.to_numeric(df[column_name], errors="coerce")
+
+    # Berechnung der Differenz und Hinzufügen zur neuen Spalte "Difference"
+    df["GN/LS"] = (
+        df[column_name].diff().shift(-1).fillna(0)
+    )  # Erster Wert wird als 0 behandelt
+    df = df.drop(columns=[column_name])
+
+    return df
+
+
+def transform_gn_ls_by_odk(df: pd.DataFrame) -> pd.DataFrame:
+    # Setze den Wert in der Spalte 'GN/LS' auf 0, wo die 'ODK' Spalte den Wert 'K' hat
+    df.loc[df["ODK"] == "K", "GN/LS"] = 0
+    return df
+
+
 def update_play_type(df):
     df = df.copy()
     for i in range(len(df)):
@@ -343,6 +439,7 @@ def main():
             df = (
                 df.pipe(split_down_distance)
                 .pipe(transform_yardline)
+                .pipe(transform_down_distance_values)
                 .pipe(rename_and_reorder_columns)
                 .pipe(add_play_column)
                 .pipe(add_play_type)
@@ -351,6 +448,8 @@ def main():
                 .pipe(add_rusher_column)
                 .pipe(add_receiver_column)
                 .pipe(add_tackler_column)
+                .pipe(add_adjusted_yardline)
+                .pipe(transform_adjusted_yardline)
             )
 
             visitors = doc.get("score_board")[0].get("Team")
@@ -361,12 +460,14 @@ def main():
 
             with tab1:
                 df_home = add_odk_column(df, expected_letter, invert=False)
-                df_home = update_play_type(df_home)
+                # df_home = update_play_type(df_home)
+                df_home = transform_gn_ls_by_odk(df_home)
                 st.dataframe(df_home)
 
             with tab2:
                 df_away = add_odk_column(df, expected_letter, invert=True)
-                df_away = update_play_type(df_away)
+                # df_away = update_play_type(df_away)
+                df_away = transform_gn_ls_by_odk(df_away)
                 st.dataframe(df_away)
 
     else:
