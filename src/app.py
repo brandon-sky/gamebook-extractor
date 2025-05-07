@@ -380,6 +380,11 @@ def transform_adjusted_yardline(df: pd.DataFrame) -> pd.DataFrame:
 
     return df
 
+def transform_gn_ls_by_odk(df: pd.DataFrame) -> pd.DataFrame:
+    # Setze den Wert in der Spalte 'GN/LS' auf 0, wo die 'ODK' Spalte den Wert 'K' hat
+    df.loc[df['ODK'] == 'K', 'GN/LS'] = 0
+    return df
+
 
 def update_play_type(df):
     df = df.copy()
@@ -453,11 +458,13 @@ def main():
             with tab1:
                 df_home = add_odk_column(df, expected_letter, invert=False)
                 # df_home = update_play_type(df_home)
+                df_home = transform_gn_ls_by_odk(df_home)
                 st.dataframe(df_home)
 
             with tab2:
                 df_away = add_odk_column(df, expected_letter, invert=True)
                 # df_away = update_play_type(df_away)
+                df_away = transform_gn_ls_by_odk(df_away)
                 st.dataframe(df_away)
 
     else:
