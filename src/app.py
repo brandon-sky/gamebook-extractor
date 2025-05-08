@@ -332,8 +332,8 @@ def add_scout_depended_columns(df, scout_team, opponent_team, location):
     df = df.copy()
     df["LOCATION"] = location
     df["SCOUT"] = scout_team
-    df["OPPONENT"] = opponent_team 
- 
+    df["OPPONENT"] = opponent_team
+
     return df
 
 
