@@ -26,7 +26,7 @@ PARSERS = [
 
 # Column names
 COLUMN_PLAY_TYPE = "PLAY TYPE"
-COLUMN_POSSESION = "Possession"
+COLUMN_POSSESION = "POSS"
 
 
 # Func
@@ -328,6 +328,15 @@ def add_odk_column(df, expected_letter, invert=False):
     return df
 
 
+def add_scout_depended_columns(df, scout_team, opponent_team, location):
+    df = df.copy()
+    df["LOCATION"] = location
+    df["SCOUT"] = scout_team
+    df["OPPONENT"] = opponent_team 
+ 
+    return df
+
+
 def add_gn_ls(df: pd.DataFrame) -> pd.DataFrame:
     """
     Berechnet die "GN/LS"-Spalte als Differenz der "YARD LN"-Spalte.
@@ -493,12 +502,18 @@ def main():
                 df_home = add_odk_column(df, expected_letter, invert=False)
                 df_home = transform_gn_ls_by_odk(df_home)
                 df_home = transform_play_types(short_home, df_home)
+                df_home = add_scout_depended_columns(
+                    df_home, short_home, short_visitors, "HOME"
+                )
                 st.dataframe(df_home)
 
             with tab2:
                 df_away = add_odk_column(df, expected_letter, invert=True)
                 df_away = transform_gn_ls_by_odk(df_away)
                 df_away = transform_play_types(short_visitors, df_away)
+                df_away = add_scout_depended_columns(
+                    df_away, short_visitors, short_home, "AWAY"
+                )
                 st.dataframe(df_away)
 
     else:
