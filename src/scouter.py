@@ -607,11 +607,26 @@ def extract_entries(text, drive_no, quarter):
     pattern_drive_summary = (
         r"\s*Plays\s+\d+\s+Yards\s+-?\d+\s+TOP\s+\d{2}:\d{2}\s+SCORE\s*[\d-]*"
     )
-    pattern = rf"(?<=\s)([A-Z]{{2,3}})(?=\s)\s*([^@]*)?\s*(@\s*[A-Z]+\d+)\s*(.*?)(?=\s+[A-Z]{{2,3}}\s|$|(?=.{0,29}$)|(?={pattern_drive_summary}))"
+    pattern_part_team = r"([A-Za-z]{2,3})"
+    pattern_part_down_distance = r"([0-9]{1,2}&[0-9]{1,2})?"
+    pattern_part_yardline = r"(@\s*[A-Za-z]+\d+)"
+    pattern_part_details = r"([^@]*)?"
+    pattern_part_lookahead = (
+        r"(?=\s+[A-Za-z]{2,3}\s|$|(?=.{0,29}$)|(?={pattern_drive_summary}))"
+    )
+
+    pattern_play = rf"(?<=\s){pattern_part_team}\s*{pattern_part_down_distance}\s*{pattern_part_yardline}\s*{pattern_part_details}\s*{pattern_part_lookahead}"
 
     entries = []
 
-    for match in re.finditer(pattern, text, re.DOTALL):
+    for match in re.finditer(pattern_play, text, re.DOTALL):
+        match_text = (
+            match.group().strip()
+        )  # Entfernt führende und nachfolgende Leerzeichen
+
+        if not match_text:
+            continue
+
         entry = {
             "Quarter": quarter,
             "Series": drive_no,
