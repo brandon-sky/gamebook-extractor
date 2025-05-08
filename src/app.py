@@ -130,7 +130,15 @@ def rename_and_reorder_columns(df: pd.DataFrame) -> pd.DataFrame:
     :return: DataFrame mit umbenannten und neu geordneten Spalten
     """
     df.rename(columns={"Index": COLUMN_POSSESION, "Quarter": "QTR"}, inplace=True)
-    column_order = ["QTR", "SERIES", "YARD LN", "DN", "DIST", COLUMN_POSSESION, "Details"]
+    column_order = [
+        "QTR",
+        "SERIES",
+        "YARD LN",
+        "DN",
+        "DIST",
+        COLUMN_POSSESION,
+        "Details",
+    ]
     df = df[column_order]
     return df
 
@@ -309,7 +317,9 @@ def add_odk_column(df, expected_letter, invert=False):
             lambda x: d_char if x.startswith(expected_letter) else o_char
         ),
     )
-    df.loc[df[COLUMN_PLAY_TYPE].isin(["Kickoff", "PAT", "Punt", "Field Goal"]), "ODK"] = "K"
+    df.loc[
+        df[COLUMN_PLAY_TYPE].isin(["Kickoff", "PAT", "Punt", "Field Goal"]), "ODK"
+    ] = "K"
 
     penalty_condition = df["Details"].str.contains(
         "penalty", case=False, na=False
@@ -395,27 +405,30 @@ def transform_gn_ls_by_odk(df: pd.DataFrame) -> pd.DataFrame:
     df.loc[df["ODK"] == "K", "GN/LS"] = 0
     return df
 
+
 def transform_play_types(expected_team: str, df: pd.DataFrame) -> pd.DataFrame:
     """
-    Ändert bestimmte Werte in der Spalte "PLAY TYPE", 
+    Ändert bestimmte Werte in der Spalte "PLAY TYPE",
     wenn das Team in der Spalte "POSSESION" nicht mit expected_team übereinstimmt.
-    
+
     :param expected_team: Das erwartete Team, nach dem gesucht wird
     :param df: Pandas DataFrame
     :return: DataFrame mit aktualisierten Werten in der Spalte "PLAY TYPE"
     """
-    
+
     # Mapping der PLAY TYPE Werte
     play_type_mapping = {
         "KO": "KO Rec",
         "Punt": "Punt Rec",
-        "Extra Pt.": "Extra Pt. Block"
+        "Extra Pt.": "Extra Pt. Block",
     }
-    
+
     # Bedingung anwenden und Mapping durchführen
     mask = df[COLUMN_POSSESION] != expected_team
-    df.loc[mask, COLUMN_PLAY_TYPE] = df.loc[mask, COLUMN_PLAY_TYPE].replace(play_type_mapping)
-    
+    df.loc[mask, COLUMN_PLAY_TYPE] = df.loc[mask, COLUMN_PLAY_TYPE].replace(
+        play_type_mapping
+    )
+
     return df
 
 
