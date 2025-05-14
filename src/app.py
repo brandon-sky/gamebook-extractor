@@ -204,18 +204,38 @@ def add_result_column(df: pd.DataFrame) -> pd.DataFrame:
 
     def categorize_result(details):
         details_lower = details.lower()
-        if "rush" in details_lower or "knee" in details_lower:
+        if "no-play" in details_lower:
+            return "Penalty" #TODO: write function to add row
+        elif "penalty" in details_lower:
+            return "Penalty (Pending)" 
+        elif "rush" in details_lower or "knee" in details_lower:
+            if "fumbles" in details_lower:
+                return "Rush, Fumble" #TODO: check if possesion changed
+            elif "touchdown" in details_lower:
+                return "Rush, TD"
             return "Rush"
         elif "incomplete" in details_lower:
             return "Incomplete"
         elif "complete" in details_lower:
+            if "fumbles" in details_lower:
+                return "Complete, Fumble" #TODO: check if possesion changed
+            elif "touchdown" in details_lower:
+                return "Complete, TD"
             return "Complete"
         elif "sacked" in details_lower:
+            if "fumbles" in details_lower:
+                return "Sack, Fumble" #TODO: check if possesion changed
             return "Sack"
         elif "intercepted" in details_lower:
+            if "touchdown" in details_lower:
+                return "Interception, TD"
             return "Interception"
+        elif "succeeds" in details_lower:
+            return "Good"
         elif "is good" in details_lower:
             return "Good"
+        elif "misses" in details_lower:
+            return "No good"
         elif "no good" in details_lower:
             return "No good"
         elif "returned" in details_lower:
@@ -224,6 +244,16 @@ def add_result_column(df: pd.DataFrame) -> pd.DataFrame:
             return "Fair Catch"
         elif "timeout" in details_lower:
             return "Timeout"
+        elif "end of game" in details_lower:
+            return "COP"
+        elif "out-of-bounds" in details_lower:
+            return "Out of Bounds"
+        elif "safety" in details_lower:
+            return "Safety"
+        elif "touchback" in details_lower:
+            return "Touchback" #TODO: touchback/major touchback
+        elif "downed" in details_lower:
+            return "Downed"
         return "Other"
 
     df["Result"] = df["Details"].apply(categorize_result)
