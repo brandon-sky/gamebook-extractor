@@ -715,7 +715,7 @@ def parse_last_pages(pages: str, doc: dict) -> dict:
             )
 
             print(f"Drive: {drive_no}".center(79, "-"))
-
+            drive = drive.split("Plays")[0]
             plays = extract_entries(drive, quarter=quarter_no, drive_no=drive_no)
 
             previous_drive_no = drive_no
