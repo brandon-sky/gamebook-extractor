@@ -305,6 +305,7 @@ def add_tackler_column(df: pd.DataFrame) -> pd.DataFrame:
     df["Tackler"] = df["Details"].apply(extract_tackler)
     return df
 
+
 def add_kicker_column(df: pd.DataFrame) -> pd.DataFrame:
     """
     Fügt eine neue Spalte "Kicker" hinzu, die den Namen des Kickers aus der "Details"-Spalte extrahiert.
@@ -323,13 +324,14 @@ def add_kicker_column(df: pd.DataFrame) -> pd.DataFrame:
             return None
         match = re.search(
             r"([A-Z]\. ?[A-Z][a-z]+)\s(?:attempts an extra point|attempts a \d+\s+yards field goal|kickoff)",
-            details
+            details,
         )
         return match.group(1) if match else None
 
     df = df.copy()
     df["Kicker"] = df["Details"].apply(extract_kicker)
     return df
+
 
 def add_punter_column(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -352,6 +354,7 @@ def add_punter_column(df: pd.DataFrame) -> pd.DataFrame:
     df["Punter"] = df["Details"].apply(extract_punter)
     return df
 
+
 def add_recovered_column(df: pd.DataFrame) -> pd.DataFrame:
     """
     Fügt eine neue Spalte "Recovered" hinzu, die den Namen des Spielers extrahiert,
@@ -365,12 +368,15 @@ def add_recovered_column(df: pd.DataFrame) -> pd.DataFrame:
     def extract_recovered(details):
         if not isinstance(details, str):
             return None
-        match = re.search(r"Recovered by team [A-Za-z ]+ by ([A-Z]\. ?[A-Z][a-z]+)", details)
+        match = re.search(
+            r"Recovered by team [A-Za-z ]+ by ([A-Z]\. ?[A-Z][a-z]+)", details
+        )
         return match.group(1) if match else None
 
     df = df.copy()
     df["Recovered"] = df["Details"].apply(extract_recovered)
     return df
+
 
 def add_intercepted_column(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -389,6 +395,7 @@ def add_intercepted_column(df: pd.DataFrame) -> pd.DataFrame:
     df["Intercepted"] = df["Details"].apply(extract_intercepted)
     return df
 
+
 def add_tackler2_column(df: pd.DataFrame) -> pd.DataFrame:
     """
     Fügt eine neue Spalte 'Tackler 2' hinzu, die den zweiten Tackler extrahiert,
@@ -398,12 +405,15 @@ def add_tackler2_column(df: pd.DataFrame) -> pd.DataFrame:
     def extract_tackler2(details):
         if not isinstance(details, str):
             return None
-        match = re.search(r"tackled by [A-Z]\. ?[A-Z][a-z]+ and ([A-Z]\. ?[A-Z][a-z]+)", details)
+        match = re.search(
+            r"tackled by [A-Z]\. ?[A-Z][a-z]+ and ([A-Z]\. ?[A-Z][a-z]+)", details
+        )
         return match.group(1) if match else None
 
     df = df.copy()
     df["Tackler 2"] = df["Details"].apply(extract_tackler2)
     return df
+
 
 def add_returner_column(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -420,6 +430,7 @@ def add_returner_column(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
     df["Returner"] = df["Details"].apply(extract_returner)
     return df
+
 
 def add_odk_column(df, expected_letter, invert=False):
     df = df.copy()
@@ -559,10 +570,10 @@ def create_team_dataframe(game_data: dict, team: str) -> pd.DataFrame:
     """
     Erstellt ein flaches DataFrame für ein Team ('home' oder 'visitors').
     Setzt den Index als: 'Erster Buchstabe von First Name + Leerzeichen + Last Name'.
-    
+
     Gibt ein DataFrame mit Spalten:
     ['First Name', 'Last Name', 'Position', '#', 'Starter', 'Team']
-    
+
     Parameter:
         game_data (dict): Das gesamte Spiel-Dictionary
         team (str): 'home' oder 'visitors'
@@ -570,30 +581,32 @@ def create_team_dataframe(game_data: dict, team: str) -> pd.DataFrame:
     all_players = []
 
     team_data = game_data
-    for group in ['starter', 'bench']:
+    for group in ["starter", "bench"]:
         players = team_data.get(group, [])
         for player in players:
-            first_name = player.get('Index', '').strip()
-            last_name = player.get('Last Name', '')
+            first_name = player.get("Index", "").strip()
+            last_name = player.get("Last Name", "")
             player_entry = {
-                'First Name': first_name,
-                'Last Name': last_name,
-                'Position': player.get('Position', ''),
-                '#': player.get('#', ''),
-                'Starter': 'Starter' if group == 'starter' else 'Bench',
-                'Team': team
+                "First Name": first_name,
+                "Last Name": last_name,
+                "Position": player.get("Position", ""),
+                "#": player.get("#", ""),
+                "Starter": "Starter" if group == "starter" else "Bench",
+                "Team": team,
             }
             all_players.append(player_entry)
 
     df = pd.DataFrame(all_players)
 
     # Index setzen: erster Buchstabe von First Name + ' ' + Last Name
-    df.index = df['First Name'].str[0] + ' ' + df['Last Name']
+    df.index = df["First Name"].str[0] + " " + df["Last Name"]
 
     return df
 
 
-def enrich_player_numbers(df_drive: pd.DataFrame, df_players: pd.DataFrame) -> pd.DataFrame:
+def enrich_player_numbers(
+    df_drive: pd.DataFrame, df_players: pd.DataFrame
+) -> pd.DataFrame:
     """
     Ergänzt die Drive-Tabelle um Nummernspalten für Passer, Rusher, Receiver, Tackler.
     Verwendet weiche Nachnamenssuche: prüft, ob der Nachname aus der Drive-Tabelle
@@ -610,7 +623,7 @@ def enrich_player_numbers(df_drive: pd.DataFrame, df_players: pd.DataFrame) -> p
         "Recovered": "Recovered Number",
         "Intercepted": "Intercepted Number",
         "Tackler 2": "Tackler 2 Number",
-        "Returner": "Returner Number"
+        "Returner": "Returner Number",
     }
 
     enriched_columns = {new_col: [] for new_col in roles.values()}
@@ -634,7 +647,11 @@ def enrich_player_numbers(df_drive: pd.DataFrame, df_players: pd.DataFrame) -> p
 
             # Weiche Suche im Nachnamen
             matches = df_players[
-                (df_players["Last Name"].str.contains(last_name_part, case=False, na=False)) #TODO: Achtung Gleiche Namen könnten Probleme machen
+                (
+                    df_players["Last Name"].str.contains(
+                        last_name_part, case=False, na=False
+                    )
+                )  # TODO: Achtung Gleiche Namen könnten Probleme machen
             ]
 
             if not matches.empty:
@@ -666,41 +683,40 @@ def rename_player_columns(df: pd.DataFrame) -> pd.DataFrame:
 
     rename_map = {
         # Passer
-        'Passer': 'PASSER_Name',
-        'Passer Number': 'PASSER_Jersey',
+        "Passer": "PASSER_Name",
+        "Passer Number": "PASSER_Jersey",
         # Rusher
-        'Rusher': 'RUSHER_Name',
-        'Rusher Number': 'RUSHER_Jersey',
+        "Rusher": "RUSHER_Name",
+        "Rusher Number": "RUSHER_Jersey",
         # Receiver
-        'Receiver': 'RECEIVER_Name',
-        'Receiver Number': 'RECEIVER_Jersey',
+        "Receiver": "RECEIVER_Name",
+        "Receiver Number": "RECEIVER_Jersey",
         # Tackler 1
-        'Tackler': 'TACKLER1_Name',
-        'Tackler Number': 'TACKLER1_Jersey',
+        "Tackler": "TACKLER1_Name",
+        "Tackler Number": "TACKLER1_Jersey",
         # Tackler 2
-        'Tackler 2': 'TACKLER2_Name',
-        'Tackler 2 Number': 'TACKLER2_Jersey',
+        "Tackler 2": "TACKLER2_Name",
+        "Tackler 2 Number": "TACKLER2_Jersey",
         # Kicker
-        'Kicker': 'KICKER_Name',
-        'Kicker Number': 'KICKER_Jersey',
+        "Kicker": "KICKER_Name",
+        "Kicker Number": "KICKER_Jersey",
         # Punter
-        'Punter': 'PUNTER_Name',
-        'Punter Number': 'PUNTER_Jersey',
+        "Punter": "PUNTER_Name",
+        "Punter Number": "PUNTER_Jersey",
         # Recovered
-        'Recovered': 'RECOVERED BY_Name',
-        'Recovered Number': 'RECOVERED BY_Jersey',
+        "Recovered": "RECOVERED BY_Name",
+        "Recovered Number": "RECOVERED BY_Jersey",
         # Intercepted
-        'Intercepted': 'INTERCEPTED BY_Name',
-        'Intercepted Number': 'INTERCEPTED BY_Jersey',
+        "Intercepted": "INTERCEPTED BY_Name",
+        "Intercepted Number": "INTERCEPTED BY_Jersey",
         # Returner → basiert auf Receiver, falls gewünscht
-        'Returner': 'RETURNER_Name',
-        'Returner Number': 'RETURNER_Jersey',
+        "Returner": "RETURNER_Name",
+        "Returner Number": "RETURNER_Jersey",
     }
 
     df = df.copy()
     df = df.rename(columns=rename_map)
     return df
-
 
 
 def main():
@@ -732,9 +748,6 @@ def main():
         with st.expander("Raw Data"):
             st.write(doc)
 
-
-
-        
         with st.expander("Drives Table"):
             df = dict_to_dataframe(doc.get("drives", {}))
 
@@ -767,8 +780,12 @@ def main():
             short_home = NAMES.get(home).get("short")
             short_visitors = NAMES.get(visitors).get("short")
 
-            players_home = create_team_dataframe(doc.get("participation", {}).get("home", {}), short_home)
-            players_visitors = create_team_dataframe(doc.get("participation", {}).get("visitors", {}), short_visitors)
+            players_home = create_team_dataframe(
+                doc.get("participation", {}).get("home", {}), short_home
+            )
+            players_visitors = create_team_dataframe(
+                doc.get("participation", {}).get("visitors", {}), short_visitors
+            )
 
             players = pd.concat([players_home, players_visitors], axis=0)
 
@@ -795,7 +812,7 @@ def main():
                 df_away = enrich_player_numbers(df_away, players)
                 df_away = rename_player_columns(df_away)
                 st.dataframe(df_away)
-        
+
     else:
         st.write("Kein Text gefunden oder Fehler beim Extrahieren.")
 
