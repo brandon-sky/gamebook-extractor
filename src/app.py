@@ -595,6 +595,8 @@ def create_team_dataframe(game_data: dict, team: str) -> pd.DataFrame:
         game_data (dict): Das gesamte Spiel-Dictionary
         team (str): 'home' oder 'visitors'
     """
+    if game_data is None:
+        return None
     all_players = []
 
     team_data = game_data
@@ -662,18 +664,21 @@ def enrich_player_numbers(
                 continue
 
             # Weiche Suche im Nachnamen
-            matches = df_players[
-                (
-                    df_players["Last Name"].str.contains(
-                        last_name_part, case=False, na=False
-                    )
-                )  # TODO: Achtung Gleiche Namen könnten Probleme machen
-            ]
-
-            if not matches.empty:
-                enriched_columns[new_col].append(int(matches.iloc[0]["#"]))
-            else:
+            if df_players is None:
                 enriched_columns[new_col].append(None)
+            else:
+                matches = df_players[
+                    (
+                        df_players["Last Name"].str.contains(
+                            last_name_part, case=False, na=False
+                        )
+                    )  # TODO: Achtung Gleiche Namen könnten Probleme machen
+                ]
+
+                if not matches.empty:
+                    enriched_columns[new_col].append(int(matches.iloc[0]["#"]))
+                else:
+                    enriched_columns[new_col].append(None)
 
     # Neue Spalten anhängen
     df_drive = df_drive.copy()
@@ -792,17 +797,21 @@ def main():
             home = doc.get("score_board")[1].get("Team")
             expected_letter = home[0].upper()
 
+            participation = doc.get("participation", None)
             short_home = NAMES.get(home).get("short")
             short_visitors = NAMES.get(visitors).get("short")
 
-            players_home = create_team_dataframe(
-                doc.get("participation", {}).get("home", {}), short_home
-            )
-            players_visitors = create_team_dataframe(
-                doc.get("participation", {}).get("visitors", {}), short_visitors
-            )
+            if participation is not None:
+                players_home = create_team_dataframe(
+                    participation.get("home", None), short_home
+                )
+                players_visitors = create_team_dataframe(
+                    participation.get("visitors", None), short_visitors
+                )
 
-            players = pd.concat([players_home, players_visitors], axis=0)
+                players = pd.concat([players_home, players_visitors], axis=0)
+            else:
+                players = None
 
             tab1, tab2 = st.tabs([home, visitors])
 
