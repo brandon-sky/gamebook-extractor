@@ -210,7 +210,7 @@ def add_result_column(df: pd.DataFrame) -> pd.DataFrame:
             return "Penalty (Pending)"
         elif "rush" in details_lower or "knee" in details_lower:
             if "fumbles" in details_lower:
-                return "Rush, Fumble"  # TODO: check if possesion changed
+                return "Fumble"  # TODO: check if possesion changed
             elif "touchdown" in details_lower:
                 return "Rush, TD"
             return "Rush"
