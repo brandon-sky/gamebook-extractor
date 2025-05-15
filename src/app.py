@@ -260,6 +260,27 @@ def add_result_column(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def add_kicking_yards_column(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Fügt eine neue Spalte "KickingYards" hinzu, die die Kicking Yards extrahiert.
+
+    :param df: Pandas DataFrame mit einer "Details"-Spalte
+    :return: DataFrame mit der neuen "KickingYards"-Spalte
+    """
+
+    def extract_kicking_yards(details):
+        """
+        Extrahiert die Kicking Yards aus der "Details"-Spalte.
+
+        :param details: String aus der "Details"-Spalte
+        :return: Integer-Wert der Yards oder None
+        """
+        match = re.search(r"kickoff for (\d+) yards", details)
+        return int(match.group(1)) if match else None
+
+    df["KICK YARDS"] = df["Details"].apply(extract_kicking_yards)
+    return df
+
 def add_passer_column(df: pd.DataFrame) -> pd.DataFrame:
     """
     Fügt eine neue Spalte "Passer" hinzu, die den Namen des Passgebers extrahiert.
@@ -780,6 +801,7 @@ def main():
                 .pipe(add_play_column)
                 .pipe(add_play_type)
                 .pipe(add_result_column)
+                .pipe(add_kicking_yards_column)
                 .pipe(add_passer_column)
                 .pipe(add_rusher_column)
                 .pipe(add_receiver_column)
