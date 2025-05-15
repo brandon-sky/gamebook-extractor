@@ -349,39 +349,26 @@ def add_kicker_column(df: pd.DataFrame) -> pd.DataFrame:
     :return: DataFrame mit neuer Spalte "Kicker"
     """
 
-    def extract_kicker(details):
+    def extract_kicker_or_punter(details):
         if not isinstance(details, str):
             return None
-        match = re.search(
+        
+        kicker_match = re.search(
             r"([A-Z]\. ?[A-Z][a-z]+)\s(?:attempts an extra point|attempts a \d+\s+yards field goal|kickoff)",
             details,
         )
-        return match.group(1) if match else None
+        
+        punter_match = re.search(r"([A-Z]\. ?[A-Z][a-z]+)\s+punt", details)
+        
+        if kicker_match:
+            return kicker_match.group(1)
+        elif punter_match:
+            return punter_match.group(1)
+        
+        return None
 
     df = df.copy()
-    df["Kicker"] = df["Details"].apply(extract_kicker)
-    return df
-
-
-def add_punter_column(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Fügt eine neue Spalte "Punter" hinzu, die den Namen des Punters aus der "Details"-Spalte extrahiert.
-
-    Erkennt Strings wie:
-    - "J. Stork punt for 38 yards..."
-
-    :param df: Pandas DataFrame mit einer "Details"-Spalte
-    :return: DataFrame mit neuer Spalte "Punter"
-    """
-
-    def extract_punter(details):
-        if not isinstance(details, str):
-            return None
-        match = re.search(r"([A-Z]\. ?[A-Z][a-z]+)\s+punt", details)
-        return match.group(1) if match else None
-
-    df = df.copy()
-    df["Punter"] = df["Details"].apply(extract_punter)
+    df["Kicker"] = df["Details"].apply(extract_kicker_or_punter)
     return df
 
 
@@ -649,7 +636,6 @@ def enrich_player_numbers(
         "Receiver": "Receiver Number",
         "Tackler": "Tackler Number",
         "Kicker": "Kicker Number",
-        "Punter": "Punter Number",
         "Recovered": "Recovered Number",
         "Intercepted": "Intercepted Number",
         "Tackler 2": "Tackler 2 Number",
@@ -795,7 +781,6 @@ def main():
                 .pipe(add_tackler_column)
                 .pipe(add_tackler2_column)
                 .pipe(add_kicker_column)
-                .pipe(add_punter_column)
                 .pipe(add_returner_column)
                 .pipe(add_recovered_column)
                 .pipe(add_intercepted_column)
