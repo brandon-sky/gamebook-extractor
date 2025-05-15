@@ -2,6 +2,7 @@
 import re
 
 import PyPDF2
+import numpy as np
 import streamlit as st
 import pandas as pd
 
@@ -278,7 +279,37 @@ def add_kicking_yards_column(df: pd.DataFrame) -> pd.DataFrame:
         match = re.search(r"kickoff for (\d+) yards", details)
         return int(match.group(1)) if match else None
 
-    df["KICK YARDS"] = df["Details"].apply(extract_kicking_yards)
+    df["KICK YARDS"] = df["Details"].apply(extract_kicking_yards) #TODO: consider PAT too
+    return df
+
+def add_caught_on_column(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Fügt eine neue Spalte "CaughtOn" hinzu, berechnet mit der Formel:
+    100 + YARD LN - KICK YARDS
+
+    :param df: Pandas DataFrame mit den Spalten "YARD LN" und "KICK YARDS"
+    :return: DataFrame mit der neuen "CaughtOn"-Spalte
+    """
+
+    result = (100 + df["YARD LN"] - df["KICK YARDS"]) * -1
+    df["CAUGHT ON"] = result.where(result != 0, np.nan)
+    return df
+
+def add_return_yards_column(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Fügt eine neue Spalte "RetYards" hinzu, berechnet als:
+    YARD LN der nächsten Zeile - CaughtOn der aktuellen Zeile.
+
+    :param df: Pandas DataFrame mit den Spalten "YARD LN" und "CaughtOn"
+    :return: DataFrame mit der neuen "RetYards"-Spalte
+    """
+
+    # Verschiebe "YARD LN" nach oben (entspricht YARD LN der nächsten Spielzug)
+    next_yard_ln = df["YARD LN"].shift(-1)
+
+    # Berechne Return Yards
+    df["RET YARDS"] = (next_yard_ln - df["CAUGHT ON"]) * (-1)
+    
     return df
 
 def add_passer_column(df: pd.DataFrame) -> pd.DataFrame:
@@ -802,6 +833,8 @@ def main():
                 .pipe(add_play_type)
                 .pipe(add_result_column)
                 .pipe(add_kicking_yards_column)
+                .pipe(add_caught_on_column)
+                .pipe(add_return_yards_column)
                 .pipe(add_passer_column)
                 .pipe(add_rusher_column)
                 .pipe(add_receiver_column)
