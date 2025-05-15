@@ -181,7 +181,7 @@ def add_play_type(df: pd.DataFrame) -> pd.DataFrame:
         elif "punt" in details_lower:
             return "Punt"
         elif "timeout" in details_lower:
-            return "Timeout"
+            return None
         elif "knee" in details_lower:
             return "Run"
         elif "kickoff" in details_lower:
@@ -210,7 +210,7 @@ def add_result_column(df: pd.DataFrame) -> pd.DataFrame:
             return "Penalty (Pending)"
         elif "rush" in details_lower or "knee" in details_lower:
             if "fumbles" in details_lower:
-                return "Rush, Fumble"  # TODO: check if possesion changed
+                return "Fumble"  # TODO: check if possesion changed
             elif "touchdown" in details_lower:
                 return "Rush, TD"
             return "Rush"
@@ -349,39 +349,26 @@ def add_kicker_column(df: pd.DataFrame) -> pd.DataFrame:
     :return: DataFrame mit neuer Spalte "Kicker"
     """
 
-    def extract_kicker(details):
+    def extract_kicker_or_punter(details):
         if not isinstance(details, str):
             return None
-        match = re.search(
+        
+        kicker_match = re.search(
             r"([A-Z]\. ?[A-Z][a-z]+)\s(?:attempts an extra point|attempts a \d+\s+yards field goal|kickoff)",
             details,
         )
-        return match.group(1) if match else None
+        
+        punter_match = re.search(r"([A-Z]\. ?[A-Z][a-z]+)\s+punt", details)
+        
+        if kicker_match:
+            return kicker_match.group(1)
+        elif punter_match:
+            return punter_match.group(1)
+        
+        return None
 
     df = df.copy()
-    df["Kicker"] = df["Details"].apply(extract_kicker)
-    return df
-
-
-def add_punter_column(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Fügt eine neue Spalte "Punter" hinzu, die den Namen des Punters aus der "Details"-Spalte extrahiert.
-
-    Erkennt Strings wie:
-    - "J. Stork punt for 38 yards..."
-
-    :param df: Pandas DataFrame mit einer "Details"-Spalte
-    :return: DataFrame mit neuer Spalte "Punter"
-    """
-
-    def extract_punter(details):
-        if not isinstance(details, str):
-            return None
-        match = re.search(r"([A-Z]\. ?[A-Z][a-z]+)\s+punt", details)
-        return match.group(1) if match else None
-
-    df = df.copy()
-    df["Punter"] = df["Details"].apply(extract_punter)
+    df["Kicker"] = df["Details"].apply(extract_kicker_or_punter)
     return df
 
 
@@ -608,6 +595,8 @@ def create_team_dataframe(game_data: dict, team: str) -> pd.DataFrame:
         game_data (dict): Das gesamte Spiel-Dictionary
         team (str): 'home' oder 'visitors'
     """
+    if game_data is None:
+        return None
     all_players = []
 
     team_data = game_data
@@ -649,7 +638,6 @@ def enrich_player_numbers(
         "Receiver": "Receiver Number",
         "Tackler": "Tackler Number",
         "Kicker": "Kicker Number",
-        "Punter": "Punter Number",
         "Recovered": "Recovered Number",
         "Intercepted": "Intercepted Number",
         "Tackler 2": "Tackler 2 Number",
@@ -676,18 +664,21 @@ def enrich_player_numbers(
                 continue
 
             # Weiche Suche im Nachnamen
-            matches = df_players[
-                (
-                    df_players["Last Name"].str.contains(
-                        last_name_part, case=False, na=False
-                    )
-                )  # TODO: Achtung Gleiche Namen könnten Probleme machen
-            ]
-
-            if not matches.empty:
-                enriched_columns[new_col].append(int(matches.iloc[0]["#"]))
-            else:
+            if df_players is None:
                 enriched_columns[new_col].append(None)
+            else:
+                matches = df_players[
+                    (
+                        df_players["Last Name"].str.contains(
+                            last_name_part, case=False, na=False
+                        )
+                    )  # TODO: Achtung Gleiche Namen könnten Probleme machen
+                ]
+
+                if not matches.empty:
+                    enriched_columns[new_col].append(int(matches.iloc[0]["#"]))
+                else:
+                    enriched_columns[new_col].append(None)
 
     # Neue Spalten anhängen
     df_drive = df_drive.copy()
@@ -795,7 +786,6 @@ def main():
                 .pipe(add_tackler_column)
                 .pipe(add_tackler2_column)
                 .pipe(add_kicker_column)
-                .pipe(add_punter_column)
                 .pipe(add_returner_column)
                 .pipe(add_recovered_column)
                 .pipe(add_intercepted_column)
@@ -807,17 +797,21 @@ def main():
             home = doc.get("score_board")[1].get("Team")
             expected_letter = home[0].upper()
 
+            participation = doc.get("participation", None)
             short_home = NAMES.get(home).get("short")
             short_visitors = NAMES.get(visitors).get("short")
 
-            players_home = create_team_dataframe(
-                doc.get("participation", {}).get("home", {}), short_home
-            )
-            players_visitors = create_team_dataframe(
-                doc.get("participation", {}).get("visitors", {}), short_visitors
-            )
+            if participation is not None:
+                players_home = create_team_dataframe(
+                    participation.get("home", None), short_home
+                )
+                players_visitors = create_team_dataframe(
+                    participation.get("visitors", None), short_visitors
+                )
 
-            players = pd.concat([players_home, players_visitors], axis=0)
+                players = pd.concat([players_home, players_visitors], axis=0)
+            else:
+                players = None
 
             tab1, tab2 = st.tabs([home, visitors])
 
