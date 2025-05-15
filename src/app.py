@@ -181,7 +181,7 @@ def add_play_type(df: pd.DataFrame) -> pd.DataFrame:
         elif "punt" in details_lower:
             return "Punt"
         elif "timeout" in details_lower:
-            return "Timeout"
+            return None
         elif "knee" in details_lower:
             return "Run"
         elif "kickoff" in details_lower:
