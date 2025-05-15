@@ -279,10 +279,15 @@ def add_kicking_yards_column(df: pd.DataFrame) -> pd.DataFrame:
         match = re.search(r"kickoff for (\d+) yards", details)
         return int(match.group(1)) if match else None
 
-    df["KICK YARDS"] = df["Details"].apply(extract_kicking_yards) #TODO: consider PAT too
+    df["KICK YARDS"] = df["Details"].apply(
+        extract_kicking_yards
+    )  # TODO: consider PAT too
     return df
 
-def add_caught_on_column(df: pd.DataFrame) -> pd.DataFrame:
+
+def add_caught_on_column(
+    df: pd.DataFrame,
+) -> pd.DataFrame:  # TODO: consider Fumble Recovery too
     """
     Fügt eine neue Spalte "CaughtOn" hinzu, berechnet mit der Formel:
     100 + YARD LN - KICK YARDS
@@ -295,7 +300,10 @@ def add_caught_on_column(df: pd.DataFrame) -> pd.DataFrame:
     df["CAUGHT ON"] = result.where(result != 0, np.nan)
     return df
 
-def add_return_yards_column(df: pd.DataFrame) -> pd.DataFrame:
+
+def add_return_yards_column(
+    df: pd.DataFrame,
+) -> pd.DataFrame:  # TODO: consider Fumble Recovery too
     """
     Fügt eine neue Spalte "RetYards" hinzu, berechnet als:
     YARD LN der nächsten Zeile - CaughtOn der aktuellen Zeile.
@@ -309,8 +317,9 @@ def add_return_yards_column(df: pd.DataFrame) -> pd.DataFrame:
 
     # Berechne Return Yards
     df["RET YARDS"] = (next_yard_ln - df["CAUGHT ON"]) * (-1)
-    
+
     return df
+
 
 def add_passer_column(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -404,19 +413,19 @@ def add_kicker_column(df: pd.DataFrame) -> pd.DataFrame:
     def extract_kicker_or_punter(details):
         if not isinstance(details, str):
             return None
-        
+
         kicker_match = re.search(
             r"([A-Z]\. ?[A-Z][a-z]+)\s(?:attempts an extra point|attempts a \d+\s+yards field goal|kickoff)",
             details,
         )
-        
+
         punter_match = re.search(r"([A-Z]\. ?[A-Z][a-z]+)\s+punt", details)
-        
+
         if kicker_match:
             return kicker_match.group(1)
         elif punter_match:
             return punter_match.group(1)
-        
+
         return None
 
     df = df.copy()
