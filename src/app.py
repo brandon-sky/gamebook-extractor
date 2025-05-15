@@ -2,6 +2,7 @@
 import re
 
 import PyPDF2
+import numpy as np
 import streamlit as st
 import pandas as pd
 
@@ -260,6 +261,66 @@ def add_result_column(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def add_kicking_yards_column(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Fügt eine neue Spalte "KickingYards" hinzu, die die Kicking Yards extrahiert.
+
+    :param df: Pandas DataFrame mit einer "Details"-Spalte
+    :return: DataFrame mit der neuen "KickingYards"-Spalte
+    """
+
+    def extract_kicking_yards(details):
+        """
+        Extrahiert die Kicking Yards aus der "Details"-Spalte.
+
+        :param details: String aus der "Details"-Spalte
+        :return: Integer-Wert der Yards oder None
+        """
+        match = re.search(r"kickoff for (\d+) yards", details)
+        return int(match.group(1)) if match else None
+
+    df["KICK YARDS"] = df["Details"].apply(
+        extract_kicking_yards
+    )  # TODO: consider PAT too
+    return df
+
+
+def add_caught_on_column(
+    df: pd.DataFrame,
+) -> pd.DataFrame:  # TODO: consider Fumble Recovery too
+    """
+    Fügt eine neue Spalte "CaughtOn" hinzu, berechnet mit der Formel:
+    100 + YARD LN - KICK YARDS
+
+    :param df: Pandas DataFrame mit den Spalten "YARD LN" und "KICK YARDS"
+    :return: DataFrame mit der neuen "CaughtOn"-Spalte
+    """
+
+    result = (100 + df["YARD LN"] - df["KICK YARDS"]) * -1
+    df["CAUGHT ON"] = result.where(result != 0, np.nan)
+    return df
+
+
+def add_return_yards_column(
+    df: pd.DataFrame,
+) -> pd.DataFrame:  # TODO: consider Fumble Recovery too
+    """
+    Fügt eine neue Spalte "RetYards" hinzu, berechnet als:
+    YARD LN der nächsten Zeile - CaughtOn der aktuellen Zeile.
+
+    :param df: Pandas DataFrame mit den Spalten "YARD LN" und "CaughtOn"
+    :return: DataFrame mit der neuen "RetYards"-Spalte
+    """
+
+    # Verschiebe "YARD LN" nach oben (entspricht YARD LN der nächsten Spielzug)
+    next_yard_ln = df["YARD LN"].shift(-1)
+
+    # Berechne Return Yards
+    df["RET YARDS"] = (next_yard_ln - df["CAUGHT ON"]) * (-1)
+
+    return df
+
+
 def add_passer_column(df: pd.DataFrame) -> pd.DataFrame:
     """
     Fügt eine neue Spalte "Passer" hinzu, die den Namen des Passgebers extrahiert.
@@ -352,19 +413,19 @@ def add_kicker_column(df: pd.DataFrame) -> pd.DataFrame:
     def extract_kicker_or_punter(details):
         if not isinstance(details, str):
             return None
-        
+
         kicker_match = re.search(
             r"([A-Z]\. ?[A-Z][a-z]+)\s(?:attempts an extra point|attempts a \d+\s+yards field goal|kickoff)",
             details,
         )
-        
+
         punter_match = re.search(r"([A-Z]\. ?[A-Z][a-z]+)\s+punt", details)
-        
+
         if kicker_match:
             return kicker_match.group(1)
         elif punter_match:
             return punter_match.group(1)
-        
+
         return None
 
     df = df.copy()
@@ -780,6 +841,9 @@ def main():
                 .pipe(add_play_column)
                 .pipe(add_play_type)
                 .pipe(add_result_column)
+                .pipe(add_kicking_yards_column)
+                .pipe(add_caught_on_column)
+                .pipe(add_return_yards_column)
                 .pipe(add_passer_column)
                 .pipe(add_rusher_column)
                 .pipe(add_receiver_column)
