@@ -324,6 +324,58 @@ def add_return_yards_column(
 
     return df
 
+def add_penalty_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Fügt zwei neue Spalten hinzu:
+    - 'Penalty O/D': Das Team, das die Strafe erhalten hat (steht direkt vor 'penalty:').
+    - 'Penalty': Die Art des Vergehens, z. B. 'DPI Defensive Pass Interference'.
+    """
+
+    def extract_penalty_team(details):
+        if not isinstance(details, str):
+            return None
+        match = re.search(r"([A-Z][a-z]+ [A-Z][a-z]+) penalty:", details)
+        return match.group(1) if match else None
+
+    def extract_penalty_type(details):
+        if not isinstance(details, str):
+            return None
+        match = re.search(r"penalty: '([^']+)'", details)
+        return match.group(1) if match else None
+
+    df = df.copy()
+    df["Penalty O/D"] = df["Details"].apply(extract_penalty_team)
+    df["Penalty"] = df["Details"].apply(extract_penalty_type)
+    return df
+
+def split_penalty_rows(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Wenn 'Result' == 'Penalty (Pending)' oder 'Penalty', wird eine neue Zeile
+    direkt darunter eingefügt, welche die Informationen aus 'Penalty O/D' und 'Penalty'
+    übernimmt. Bei 'Penalty (Pending)' werden diese Werte in der Originalzeile geleert.
+    """
+    new_rows = []
+    
+    for idx, row in df.iterrows():
+        # Ursprüngliche Zeile hinzufügen
+        new_rows.append(row.copy())
+
+        # Bedingung prüfen
+        if row['Result'] in ['Penalty', 'Penalty (Pending)']:
+            penalty_row = row.copy()
+            penalty_row['ODK'] = row['ODK']  # ggf. anpassen, falls ODK für Einordnung gebraucht wird
+            penalty_row['Result'] = 'Penalty Detail'  # Neue Markierung
+
+            # Wenn "Penalty (Pending)", dann original leeren
+            if row['Result'] == 'Penalty (Pending)':
+                new_rows[-1]['Penalty O/D'] = None
+                new_rows[-1]['Penalty'] = None
+
+            new_rows.append(penalty_row)
+    
+    # Neuer DataFrame mit reset_index
+    new_df = pd.DataFrame(new_rows).reset_index(drop=True)
+    return new_df
 
 def add_passer_column(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -900,6 +952,7 @@ def main():
                 .pipe(add_kicking_yards_column)
                 .pipe(add_caught_on_column)
                 .pipe(add_return_yards_column)
+                .pipe(add_penalty_columns)
                 .pipe(add_passer_column)
                 .pipe(add_rusher_column)
                 .pipe(add_receiver_column)
@@ -945,6 +998,7 @@ def main():
                 df_home = enrich_player_numbers(df_home, players)
                 df_home = rename_player_columns(df_home)
                 df_home = add_score_column(df_home, short_home, short_visitors)
+                df_home = split_penalty_rows(df_home)
                 st.dataframe(df_home)
 
             with tab2:
@@ -957,6 +1011,7 @@ def main():
                 df_away = enrich_player_numbers(df_away, players)
                 df_away = rename_player_columns(df_away)
                 df_away = add_score_column(df_away, short_visitors, short_home)
+                df_away = split_penalty_rows(df_away)
                 st.dataframe(df_away)
 
     else:
