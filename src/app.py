@@ -208,7 +208,7 @@ def add_result_column(df: pd.DataFrame) -> pd.DataFrame:
         if "no-play" in details_lower:
             return "Penalty"  # TODO: write function to add row
         elif "safety" in details_lower:
-            return "Safety" #TODO: Changed from Penalty (Pending) to "Safety" because of +2
+            return "Safety"  # TODO: Changed from Penalty (Pending) to "Safety" because of +2
         elif "penalty" in details_lower:
             return "Penalty (Pending)"
         elif "rush" in details_lower or "knee" in details_lower:
@@ -217,7 +217,7 @@ def add_result_column(df: pd.DataFrame) -> pd.DataFrame:
             elif "touchdown" in details_lower:
                 return "Rush, TD"
             elif "two-point-conversion" in details_lower:
-                return "Rush, TPC" #TODO: added two-point-conversion as TPC check
+                return "Rush, TPC"  # TODO: added two-point-conversion as TPC check
             return "Rush"
         elif "incomplete" in details_lower:
             return "Incomplete"
@@ -227,7 +227,7 @@ def add_result_column(df: pd.DataFrame) -> pd.DataFrame:
             elif "touchdown" in details_lower:
                 return "Complete, TD"
             elif "two-point-conversion" in details_lower:
-                return "Complete, TPC" #TODO: added two-point-conversion as TPC check
+                return "Complete, TPC"  # TODO: added two-point-conversion as TPC check
             return "Complete"
         elif "sacked" in details_lower:
             if "fumbles" in details_lower:
@@ -593,52 +593,54 @@ def add_adjusted_yardline(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def add_score_column(df: pd.DataFrame, scout_team: str, opponent_team: str) -> pd.DataFrame:
+def add_score_column(
+    df: pd.DataFrame, scout_team: str, opponent_team: str
+) -> pd.DataFrame:
     # Neue Spalten mit 0 initialisieren
-    df['SCORE_SCOUT'] = 0
-    df['SCORE_OPP'] = 0
-    df['SCORE_DIFF'] = 0  # Neue Spalte für die Differenz
+    df["SCORE_SCOUT"] = 0
+    df["SCORE_OPP"] = 0
+    df["SCORE_DIFF"] = 0  # Neue Spalte für die Differenz
 
     # Score erhöhen
     score_scout = 0
     score_opp = 0
     for index, row in df.iterrows():
-        if 'TD' in row['Result']:
-            if row['POSS'] == scout_team:
+        if "TD" in row["Result"]:
+            if row["POSS"] == scout_team:
                 score_scout += 6
-            elif row['POSS'] == opponent_team:
+            elif row["POSS"] == opponent_team:
                 score_opp += 6
-        
-        if 'Good' in row['Result']:
-            if row['POSS'] == scout_team:
-                if row['PLAY TYPE'] == 'FG':  # Überprüfung auf Field Goal
+
+        if "Good" in row["Result"]:
+            if row["POSS"] == scout_team:
+                if row["PLAY TYPE"] == "FG":  # Überprüfung auf Field Goal
                     score_scout += 3
                 else:
                     score_scout += 1
-            elif row['POSS'] == opponent_team:
-                if row['PLAY TYPE'] == 'FG':  # Überprüfung auf Field Goal
+            elif row["POSS"] == opponent_team:
+                if row["PLAY TYPE"] == "FG":  # Überprüfung auf Field Goal
                     score_opp += 3
                 else:
                     score_opp += 1
-        
-        if 'Safety' in row['Result']:
-            if row['POSS'] == scout_team:
+
+        if "Safety" in row["Result"]:
+            if row["POSS"] == scout_team:
                 score_scout += 2
-            elif row['POSS'] == opponent_team:
+            elif row["POSS"] == opponent_team:
                 score_opp += 2
-        
-        if 'TPC' in row['Result']:  # Überprüfung auf Two-Point Conversion
-            if row['POSS'] == scout_team:
+
+        if "TPC" in row["Result"]:  # Überprüfung auf Two-Point Conversion
+            if row["POSS"] == scout_team:
                 score_scout += 2
-            elif row['POSS'] == opponent_team:
+            elif row["POSS"] == opponent_team:
                 score_opp += 2
 
         # Punkte für 'TD', 'GOOD', 'SAFETY' und 'TPC' zusammenfassen
-        df.at[index, 'SCORE_SCOUT'] = score_scout
-        df.at[index, 'SCORE_OPP'] = score_opp
+        df.at[index, "SCORE_SCOUT"] = score_scout
+        df.at[index, "SCORE_OPP"] = score_opp
 
         # SCORE_DIFF berechnen
-        df.at[index, 'SCORE_DIFF'] = score_scout - score_opp
+        df.at[index, "SCORE_DIFF"] = score_scout - score_opp
 
     return df
 
