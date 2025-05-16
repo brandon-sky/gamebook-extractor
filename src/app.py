@@ -207,6 +207,8 @@ def add_result_column(df: pd.DataFrame) -> pd.DataFrame:
         details_lower = details.lower()
         if "no-play" in details_lower:
             return "Penalty"  # TODO: write function to add row
+        elif "safety" in details_lower:
+            return "Safety"  # TODO: Changed from Penalty (Pending) to "Safety" because of +2
         elif "penalty" in details_lower:
             return "Penalty (Pending)"
         elif "rush" in details_lower or "knee" in details_lower:
@@ -214,6 +216,8 @@ def add_result_column(df: pd.DataFrame) -> pd.DataFrame:
                 return "Fumble"  # TODO: check if possesion changed
             elif "touchdown" in details_lower:
                 return "Rush, TD"
+            elif "two-point-conversion" in details_lower:
+                return "Rush, TPC"  # TODO: added two-point-conversion as TPC check
             return "Rush"
         elif "incomplete" in details_lower:
             return "Incomplete"
@@ -222,6 +226,8 @@ def add_result_column(df: pd.DataFrame) -> pd.DataFrame:
                 return "Complete, Fumble"  # TODO: check if possesion changed
             elif "touchdown" in details_lower:
                 return "Complete, TD"
+            elif "two-point-conversion" in details_lower:
+                return "Complete, TPC"  # TODO: added two-point-conversion as TPC check
             return "Complete"
         elif "sacked" in details_lower:
             if "fumbles" in details_lower:
@@ -249,8 +255,6 @@ def add_result_column(df: pd.DataFrame) -> pd.DataFrame:
             return "COP"
         elif "out-of-bounds" in details_lower:
             return "Out of Bounds"
-        elif "safety" in details_lower:
-            return "Safety"
         elif "touchback" in details_lower:
             return "Touchback"  # TODO: touchback/major touchback
         elif "downed" in details_lower:
@@ -589,6 +593,58 @@ def add_adjusted_yardline(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def add_score_column(
+    df: pd.DataFrame, scout_team: str, opponent_team: str
+) -> pd.DataFrame:
+    # Neue Spalten mit 0 initialisieren
+    df["SCORE_SCOUT"] = 0
+    df["SCORE_OPP"] = 0
+    df["SCORE_DIFF"] = 0  # Neue Spalte für die Differenz
+
+    # Score erhöhen
+    score_scout = 0
+    score_opp = 0
+    for index, row in df.iterrows():
+        if "TD" in row["Result"]:
+            if row["POSS"] == scout_team:
+                score_scout += 6
+            elif row["POSS"] == opponent_team:
+                score_opp += 6
+
+        if "Good" in row["Result"]:
+            if row["POSS"] == scout_team:
+                if row["PLAY TYPE"] == "FG":  # Überprüfung auf Field Goal
+                    score_scout += 3
+                else:
+                    score_scout += 1
+            elif row["POSS"] == opponent_team:
+                if row["PLAY TYPE"] == "FG":  # Überprüfung auf Field Goal
+                    score_opp += 3
+                else:
+                    score_opp += 1
+
+        if "Safety" in row["Result"]:
+            if row["POSS"] == scout_team:
+                score_scout += 2
+            elif row["POSS"] == opponent_team:
+                score_opp += 2
+
+        if "TPC" in row["Result"]:  # Überprüfung auf Two-Point Conversion
+            if row["POSS"] == scout_team:
+                score_scout += 2
+            elif row["POSS"] == opponent_team:
+                score_opp += 2
+
+        # Punkte für 'TD', 'GOOD', 'SAFETY' und 'TPC' zusammenfassen
+        df.at[index, "SCORE_SCOUT"] = score_scout
+        df.at[index, "SCORE_OPP"] = score_opp
+
+        # SCORE_DIFF berechnen
+        df.at[index, "SCORE_DIFF"] = score_scout - score_opp
+
+    return df
+
+
 def transform_adjusted_yardline(df: pd.DataFrame) -> pd.DataFrame:
     """
     Berechnet die Differenz zwischen den Werten in einer bestimmten Spalte von Zeile zu Zeile.
@@ -888,6 +944,7 @@ def main():
                 )
                 df_home = enrich_player_numbers(df_home, players)
                 df_home = rename_player_columns(df_home)
+                df_home = add_score_column(df_home, short_home, short_visitors)
                 st.dataframe(df_home)
 
             with tab2:
@@ -899,6 +956,7 @@ def main():
                 )
                 df_away = enrich_player_numbers(df_away, players)
                 df_away = rename_player_columns(df_away)
+                df_away = add_score_column(df_away, short_visitors, short_home)
                 st.dataframe(df_away)
 
     else:
