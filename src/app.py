@@ -216,6 +216,8 @@ def add_result_column(df: pd.DataFrame) -> pd.DataFrame:
                 return "Fumble"  # TODO: check if possesion changed
             elif "touchdown" in details_lower:
                 return "Rush, TD"
+            elif "two-point-conversion" in details_lower:
+                return "Rush, TPC" #TODO: added two-point-conversion as TPC check
             return "Rush"
         elif "incomplete" in details_lower:
             return "Incomplete"
