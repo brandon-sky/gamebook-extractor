@@ -28,6 +28,9 @@ PARSERS = [
 # Column names
 COLUMN_PLAY_TYPE = "PLAY TYPE"
 COLUMN_POSSESION = "POSS"
+COLUMN_PENALTY = "PENALTY"
+COLUMN_PENALTY_OD = "PEN O/D"
+COLUMN_RESULT = "RESULT"
 
 
 # Func
@@ -209,8 +212,8 @@ def add_result_column(df: pd.DataFrame) -> pd.DataFrame:
             return "Penalty"  # TODO: write function to add row
         elif "safety" in details_lower:
             return "Safety"  # TODO: Changed from Penalty (Pending) to "Safety" because of +2
-        elif "penalty" in details_lower:
-            return "Penalty (Pending)"
+        # elif "penalty" in details_lower:
+        #     return "Penalty (Pending)"
         elif "rush" in details_lower or "knee" in details_lower:
             if "fumbles" in details_lower:
                 return "Fumble"  # TODO: check if possesion changed
@@ -261,7 +264,7 @@ def add_result_column(df: pd.DataFrame) -> pd.DataFrame:
             return "Downed"
         return "Other"
 
-    df["Result"] = df["Details"].apply(categorize_result)
+    df[COLUMN_RESULT] = df["Details"].apply(categorize_result)
     return df
 
 
@@ -323,6 +326,76 @@ def add_return_yards_column(
     df["RET YARDS"] = (next_yard_ln - df["CAUGHT ON"]) * (-1)
 
     return df
+
+
+def add_penalty_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Fügt zwei neue Spalten hinzu:
+    - 'Penalty O/D': Das Team, das die Strafe erhalten hat (steht direkt vor 'penalty:').
+    - 'Penalty': Die Art des Vergehens, z. B. 'DPI Defensive Pass Interference'.
+
+    Die Spalten werden nur für Zeilen gesetzt, in denen entweder 'no-play' in 'Details' steht
+    oder 'DN' None ist. Sonst bleiben sie leer.
+    """
+
+    def extract_penalty_team(details):
+        if not isinstance(details, str):
+            return None
+        match = re.search(r"([A-Z][a-z]+ [A-Z][a-z]+) penalty:", details)
+        return match.group(1) if match else None
+
+    def extract_penalty_type(details):
+        if not isinstance(details, str):
+            return None
+        match = re.search(r"penalty: '([^']+)'", details)
+        return match.group(1) if match else None
+
+    df = df.copy()
+    mask = (
+        df["Details"].str.contains("no-play", case=False, na=False) | df["DN"].isnull()
+    )
+    df[COLUMN_PENALTY_OD] = None
+    df[COLUMN_PENALTY] = None
+    df.loc[mask, COLUMN_PENALTY_OD] = df.loc[mask, "Details"].apply(
+        extract_penalty_team
+    )
+    df.loc[mask, COLUMN_PENALTY] = df.loc[mask, "Details"].apply(extract_penalty_type)
+    return df
+
+
+def split_penalty_rows(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Wenn 'Result' == 'Penalty (Pending)' oder 'Penalty', wird eine neue Zeile
+    direkt darunter eingefügt, welche die Informationen aus 'Penalty O/D' und 'Penalty'
+    übernimmt. Bei 'Penalty (Pending)' werden diese Werte in der Originalzeile geleert.
+    """
+    new_rows = []
+
+    for idx, row in df.iterrows():
+        # Ursprüngliche Zeile hinzufügen
+        new_rows.append(row.copy())
+
+        # Bedingung prüfen
+        if "penalty:" in row["Details"].lower():
+            penalty_row = row.copy()
+            # penalty_row['ODK'] = row['ODK']  # ggf. anpassen, falls ODK für Einordnung gebraucht wird
+            penalty_row[COLUMN_RESULT] = "Penalty"  # Neue Markierung
+            # penalty_row['ODK'] = 'S'
+            penalty_row["Series"] = None
+            penalty_row["YARD LN"] = None
+            penalty_row["DN"] = None
+            penalty_row["DIST"] = None
+
+            # # Wenn "Penalty (Pending)", dann original leeren
+            # if "no-play" not in row['Details'].lower():
+            #     new_rows[-1][COLUMN_PENALTY_OD] = None
+            #     new_rows[-1][COLUMN_PENALTY] = None
+
+            new_rows.append(penalty_row)
+
+    # Neuer DataFrame mit reset_index
+    new_df = pd.DataFrame(new_rows).reset_index(drop=True)
+    return new_df
 
 
 def add_passer_column(df: pd.DataFrame) -> pd.DataFrame:
@@ -528,9 +601,10 @@ def add_odk_column(df, expected_letter, invert=False):
         df[COLUMN_PLAY_TYPE].isin(["Kickoff", "PAT", "Punt", "Field Goal"]), "ODK"
     ] = "K"
 
-    penalty_condition = df["Details"].str.contains(
-        "penalty", case=False, na=False
-    ) & ~df["Details"].str.contains("declined", case=False, na=False)
+    # Setze überall "S", wo "no-play" in Details oder DN None ist
+    penalty_condition = (
+        df["Details"].str.contains("no-play", case=False, na=False) | df["DN"].isnull()
+    )
     df.loc[penalty_condition, "ODK"] = "S"
     return df
 
@@ -605,13 +679,13 @@ def add_score_column(
     score_scout = 0
     score_opp = 0
     for index, row in df.iterrows():
-        if "TD" in row["Result"]:
+        if "TD" in row[COLUMN_RESULT]:
             if row["POSS"] == scout_team:
                 score_scout += 6
             elif row["POSS"] == opponent_team:
                 score_opp += 6
 
-        if "Good" in row["Result"]:
+        if "Good" in row[COLUMN_RESULT]:
             if row["POSS"] == scout_team:
                 if row["PLAY TYPE"] == "FG":  # Überprüfung auf Field Goal
                     score_scout += 3
@@ -623,13 +697,13 @@ def add_score_column(
                 else:
                     score_opp += 1
 
-        if "Safety" in row["Result"]:
+        if "Safety" in row[COLUMN_RESULT]:
             if row["POSS"] == scout_team:
                 score_scout += 2
             elif row["POSS"] == opponent_team:
                 score_opp += 2
 
-        if "TPC" in row["Result"]:  # Überprüfung auf Two-Point Conversion
+        if "TPC" in row[COLUMN_RESULT]:  # Überprüfung auf Two-Point Conversion
             if row["POSS"] == scout_team:
                 score_scout += 2
             elif row["POSS"] == opponent_team:
@@ -900,6 +974,8 @@ def main():
                 .pipe(add_kicking_yards_column)
                 .pipe(add_caught_on_column)
                 .pipe(add_return_yards_column)
+                .pipe(split_penalty_rows)
+                .pipe(add_penalty_columns)
                 .pipe(add_passer_column)
                 .pipe(add_rusher_column)
                 .pipe(add_receiver_column)
@@ -920,6 +996,11 @@ def main():
             participation = doc.get("participation", None)
             short_home = NAMES.get(home).get("short")
             short_visitors = NAMES.get(visitors).get("short")
+
+            short_team_map = {
+                home: short_home,
+                visitors: short_visitors,
+            }
 
             if participation is not None:
                 players_home = create_team_dataframe(
@@ -945,6 +1026,9 @@ def main():
                 df_home = enrich_player_numbers(df_home, players)
                 df_home = rename_player_columns(df_home)
                 df_home = add_score_column(df_home, short_home, short_visitors)
+                df_home[COLUMN_PENALTY_OD].replace(
+                    short_team_map, regex=True, inplace=True
+                )
                 st.dataframe(df_home)
 
             with tab2:
@@ -957,6 +1041,9 @@ def main():
                 df_away = enrich_player_numbers(df_away, players)
                 df_away = rename_player_columns(df_away)
                 df_away = add_score_column(df_away, short_visitors, short_home)
+                df_away[COLUMN_PENALTY_OD].replace(
+                    short_team_map, regex=True, inplace=True
+                )
                 st.dataframe(df_away)
 
     else:
