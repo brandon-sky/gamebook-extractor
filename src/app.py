@@ -327,6 +327,7 @@ def add_return_yards_column(
 
     return df
 
+
 def add_penalty_columns(df: pd.DataFrame) -> pd.DataFrame:
     """
     Fügt zwei neue Spalten hinzu:
@@ -351,14 +352,16 @@ def add_penalty_columns(df: pd.DataFrame) -> pd.DataFrame:
 
     df = df.copy()
     mask = (
-        df["Details"].str.contains("no-play", case=False, na=False)
-        | df["DN"].isnull()
+        df["Details"].str.contains("no-play", case=False, na=False) | df["DN"].isnull()
     )
     df[COLUMN_PENALTY_OD] = None
     df[COLUMN_PENALTY] = None
-    df.loc[mask, COLUMN_PENALTY_OD] = df.loc[mask, "Details"].apply(extract_penalty_team)
+    df.loc[mask, COLUMN_PENALTY_OD] = df.loc[mask, "Details"].apply(
+        extract_penalty_team
+    )
     df.loc[mask, COLUMN_PENALTY] = df.loc[mask, "Details"].apply(extract_penalty_type)
     return df
+
 
 def split_penalty_rows(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -367,21 +370,21 @@ def split_penalty_rows(df: pd.DataFrame) -> pd.DataFrame:
     übernimmt. Bei 'Penalty (Pending)' werden diese Werte in der Originalzeile geleert.
     """
     new_rows = []
-    
+
     for idx, row in df.iterrows():
         # Ursprüngliche Zeile hinzufügen
         new_rows.append(row.copy())
 
         # Bedingung prüfen
-        if "penalty:" in row['Details'].lower():
+        if "penalty:" in row["Details"].lower():
             penalty_row = row.copy()
             # penalty_row['ODK'] = row['ODK']  # ggf. anpassen, falls ODK für Einordnung gebraucht wird
-            penalty_row[COLUMN_RESULT] = 'Penalty'  # Neue Markierung
+            penalty_row[COLUMN_RESULT] = "Penalty"  # Neue Markierung
             # penalty_row['ODK'] = 'S'
-            penalty_row['Series'] = None
-            penalty_row['YARD LN'] = None
-            penalty_row['DN'] = None
-            penalty_row['DIST'] = None
+            penalty_row["Series"] = None
+            penalty_row["YARD LN"] = None
+            penalty_row["DN"] = None
+            penalty_row["DIST"] = None
 
             # # Wenn "Penalty (Pending)", dann original leeren
             # if "no-play" not in row['Details'].lower():
@@ -389,10 +392,11 @@ def split_penalty_rows(df: pd.DataFrame) -> pd.DataFrame:
             #     new_rows[-1][COLUMN_PENALTY] = None
 
             new_rows.append(penalty_row)
-    
+
     # Neuer DataFrame mit reset_index
     new_df = pd.DataFrame(new_rows).reset_index(drop=True)
     return new_df
+
 
 def add_passer_column(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -599,8 +603,7 @@ def add_odk_column(df, expected_letter, invert=False):
 
     # Setze überall "S", wo "no-play" in Details oder DN None ist
     penalty_condition = (
-        df["Details"].str.contains("no-play", case=False, na=False)
-        | df["DN"].isnull()
+        df["Details"].str.contains("no-play", case=False, na=False) | df["DN"].isnull()
     )
     df.loc[penalty_condition, "ODK"] = "S"
     return df
@@ -1024,7 +1027,8 @@ def main():
                 df_home = rename_player_columns(df_home)
                 df_home = add_score_column(df_home, short_home, short_visitors)
                 df_home[COLUMN_PENALTY_OD].replace(
-                    short_team_map, regex=True, inplace=True)
+                    short_team_map, regex=True, inplace=True
+                )
                 st.dataframe(df_home)
 
             with tab2:
@@ -1038,7 +1042,8 @@ def main():
                 df_away = rename_player_columns(df_away)
                 df_away = add_score_column(df_away, short_visitors, short_home)
                 df_away[COLUMN_PENALTY_OD].replace(
-                    short_team_map, regex=True, inplace=True)
+                    short_team_map, regex=True, inplace=True
+                )
                 st.dataframe(df_away)
 
     else:
