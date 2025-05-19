@@ -308,6 +308,49 @@ def add_caught_on_column(
     return df
 
 
+def fill_in_caught_on_column(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Extrahiert das Muster 'V4', 'R23' usw. nach 'recovered at' aus der Spalte 'Details'
+    und fügt den entsprechenden Wert in die Spalte 'CAUGHT ON' ein,
+    abhängig vom Vergleich des Anfangsbuchstabens mit der Spalte 'POSS'.
+    Bestehende Werte in 'CAUGHT ON' werden nicht überschrieben.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Das Eingabe-DataFrame, das die Spalten 'Details', 'POSS' und 'CAUGHT ON' enthält.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Ein neues DataFrame mit aktualisierter Spalte 'CAUGHT ON'.
+    """
+    def extract_recovered(text):
+        match = re.search(r'recovered at (\b[A-Z]\d+\b)', text)
+        return match.group(1) if match else None
+
+    df_copy = df.copy()  # Erstelle eine Kopie des DataFrames
+    df_copy['CAUGHT ON2'] = df_copy['Details'].apply(extract_recovered).fillna('')
+
+    def calculate_caught_on(row):
+        caught_on_value = row['CAUGHT ON2']
+        poss_value = row['POSS']
+        
+        if caught_on_value and poss_value:
+            letter_match = caught_on_value[0]
+            number_value = int(caught_on_value[1:]) if len(caught_on_value) > 1 else 0
+            
+            if letter_match == poss_value[0]:
+                return -number_value
+            else:
+                return number_value
+        return row['CAUGHT ON']  # Behalte bestehenden Wert, wenn kein neuer Wert vorhanden ist
+
+    df_copy['CAUGHT ON'] = df_copy.apply(calculate_caught_on, axis=1)
+    
+    return df_copy
+
+
 def add_return_yards_column(
     df: pd.DataFrame,
 ) -> pd.DataFrame:  # TODO: consider Fumble Recovery too
@@ -973,6 +1016,7 @@ def main():
                 .pipe(add_result_column)
                 .pipe(add_kicking_yards_column)
                 .pipe(add_caught_on_column)
+                .pipe(fill_in_caught_on_column)
                 .pipe(add_return_yards_column)
                 .pipe(split_penalty_rows)
                 .pipe(add_penalty_columns)
