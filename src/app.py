@@ -110,7 +110,7 @@ VIEW_TARGET = [
     COLUMN_LOCATION,
     COLUMN_SCOUT,
     COLUMN_OPPONENT,
-    COLUMN_DETAILS
+    COLUMN_DETAILS,
 ]
 
 
@@ -525,9 +525,7 @@ def add_penalty_columns(df: pd.DataFrame) -> pd.DataFrame:
     )
     df[COLUMN_PEN_OD] = None
     df[COLUMN_PENALTY] = None
-    df.loc[mask, COLUMN_PEN_OD] = df.loc[mask, "Details"].apply(
-        extract_penalty_team
-    )
+    df.loc[mask, COLUMN_PEN_OD] = df.loc[mask, "Details"].apply(extract_penalty_team)
     df.loc[mask, COLUMN_PENALTY] = df.loc[mask, "Details"].apply(extract_penalty_type)
     return df
 
