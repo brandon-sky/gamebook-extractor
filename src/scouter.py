@@ -758,6 +758,7 @@ def parse_last_pages(pages: str, doc: dict) -> dict:
             print(f"Drive: {drive_no}".center(79, "-"))
             print(f"check for summary: {drive_summary_not_in_string(drive)}")
             summary_in_drive = drive_summary_not_in_string(drive)
+            drive = drive.split("Plays")[0]
             plays = extract_entries(drive, quarter=quarter_no, drive_no=drive_no)
             if not summary_in_drive:
                 if "kickoff" not in drive:
