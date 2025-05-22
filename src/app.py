@@ -26,11 +26,92 @@ PARSERS = [
 ]
 
 # Column names
+COLUMN_PLAY_NUMBER = "PLAY #"
+COLUMN_ODK = "ODK"
+COLUMN_QTR = "QTR"
+COLUMN_SERIES = "SERIES"
+COLUMN_DN = "DN"
+COLUMN_DIST = "DIST"
+COLUMN_YARD_LN = "YARD LN"
+COLUMN_GN_LS = "GN/LS"
 COLUMN_PLAY_TYPE = "PLAY TYPE"
-COLUMN_POSSESION = "POSS"
-COLUMN_PENALTY = "PENALTY"
-COLUMN_PENALTY_OD = "PEN O/D"
 COLUMN_RESULT = "RESULT"
+COLUMN_PEN_OD = "PEN O/D"
+COLUMN_PENALTY = "PENALTY"
+COLUMN_SCORE_DIFF = "SCORE DIFF"
+COLUMN_SCORE_SCOUT = "SCORE SCOUT"
+COLUMN_SCORE_OPP = "SCORE OPP"
+COLUMN_CAUGHT_ON = "CAUGHT ON"
+COLUMN_KICK_YARDS = "KICK YARDS"
+COLUMN_RET_YARDS = "RET YARDS"
+COLUMN_PASSER_JERSEY = "PASSER_Jersey"
+COLUMN_PASSER_NAME = "PASSER_Name"
+COLUMN_RUSHER_JERSEY = "RUSHER_Jersey"
+COLUMN_RUSHER_NAME = "RUSHER_Name"
+COLUMN_RECEIVER_JERSEY = "RECEIVER_Jersey"
+COLUMN_RECEIVER_NAME = "RECEIVER_Name"
+COLUMN_TACKLER1_JERSEY = "TACKLER1_Jersey"
+COLUMN_TACKLER1_NAME = "TACKLER1_Name"
+COLUMN_TACKLER2_JERSEY = "TACKLER2_Jersey"
+COLUMN_TACKLER2_NAME = "TACKLER2_Name"
+COLUMN_KICKER_JERSEY = "KICKER_Jersey"
+COLUMN_KICKER_NAME = "KICKER_Name"
+COLUMN_RETURNER_JERSEY = "RETURNER_Jersey"
+COLUMN_RETURNER_NAME = "RETURNER_Name"
+COLUMN_RECOVERED_BY_JERSEY = "RECOVERED BY_Jersey"
+COLUMN_RECOVERED_BY_NAME = "RECOVERED BY_Name"
+COLUMN_INTERCEPTED_BY_JERSEY = "INTERCEPTED BY_Jersey"
+COLUMN_INTERCEPTED_BY_NAME = "INTERCEPTED BY_Name"
+COLUMN_POSS = "POSS"
+COLUMN_LOCATION = "LOCATION"
+COLUMN_SCOUT = "SCOUT"
+COLUMN_OPPONENT = "OPPONENT"
+COLUMN_DETAILS = "Details"
+
+# Target view
+VIEW_TARGET = [
+    COLUMN_PLAY_NUMBER,
+    COLUMN_ODK,
+    COLUMN_QTR,
+    COLUMN_SERIES,
+    COLUMN_DN,
+    COLUMN_DIST,
+    COLUMN_YARD_LN,
+    COLUMN_GN_LS,
+    COLUMN_PLAY_TYPE,
+    COLUMN_RESULT,
+    COLUMN_PEN_OD,
+    COLUMN_PENALTY,
+    COLUMN_SCORE_DIFF,
+    COLUMN_SCORE_SCOUT,
+    COLUMN_SCORE_OPP,
+    COLUMN_CAUGHT_ON,
+    COLUMN_KICK_YARDS,
+    COLUMN_RET_YARDS,
+    COLUMN_PASSER_JERSEY,
+    COLUMN_PASSER_NAME,
+    COLUMN_RUSHER_JERSEY,
+    COLUMN_RUSHER_NAME,
+    COLUMN_RECEIVER_JERSEY,
+    COLUMN_RECEIVER_NAME,
+    COLUMN_TACKLER1_JERSEY,
+    COLUMN_TACKLER1_NAME,
+    COLUMN_TACKLER2_JERSEY,
+    COLUMN_TACKLER2_NAME,
+    COLUMN_KICKER_JERSEY,
+    COLUMN_KICKER_NAME,
+    COLUMN_RETURNER_JERSEY,
+    COLUMN_RETURNER_NAME,
+    COLUMN_RECOVERED_BY_JERSEY,
+    COLUMN_RECOVERED_BY_NAME,
+    COLUMN_INTERCEPTED_BY_JERSEY,
+    COLUMN_INTERCEPTED_BY_NAME,
+    COLUMN_POSS,
+    COLUMN_LOCATION,
+    COLUMN_SCOUT,
+    COLUMN_OPPONENT,
+    COLUMN_DETAILS,
+]
 
 
 # Func
@@ -133,14 +214,14 @@ def rename_and_reorder_columns(df: pd.DataFrame) -> pd.DataFrame:
     :param df: Pandas DataFrame mit den ursprünglichen Spalten
     :return: DataFrame mit umbenannten und neu geordneten Spalten
     """
-    df.rename(columns={"Index": COLUMN_POSSESION, "Quarter": "QTR"}, inplace=True)
+    df.rename(columns={"Index": COLUMN_POSS, "Quarter": "QTR"}, inplace=True)
     column_order = [
         "QTR",
         "SERIES",
         "YARD LN",
         "DN",
         "DIST",
-        COLUMN_POSSESION,
+        COLUMN_POSS,
         "Details",
     ]
     df = df[column_order]
@@ -442,11 +523,9 @@ def add_penalty_columns(df: pd.DataFrame) -> pd.DataFrame:
     mask = (
         df["Details"].str.contains("no-play", case=False, na=False) | df["DN"].isnull()
     )
-    df[COLUMN_PENALTY_OD] = None
+    df[COLUMN_PEN_OD] = None
     df[COLUMN_PENALTY] = None
-    df.loc[mask, COLUMN_PENALTY_OD] = df.loc[mask, "Details"].apply(
-        extract_penalty_team
-    )
+    df.loc[mask, COLUMN_PEN_OD] = df.loc[mask, "Details"].apply(extract_penalty_team)
     df.loc[mask, COLUMN_PENALTY] = df.loc[mask, "Details"].apply(extract_penalty_type)
     return df
 
@@ -476,7 +555,7 @@ def split_penalty_rows(df: pd.DataFrame) -> pd.DataFrame:
 
             # # Wenn "Penalty (Pending)", dann original leeren
             # if "no-play" not in row['Details'].lower():
-            #     new_rows[-1][COLUMN_PENALTY_OD] = None
+            #     new_rows[-1][COLUMN_PEN_OD] = None
             #     new_rows[-1][COLUMN_PENALTY] = None
 
             new_rows.append(penalty_row)
@@ -681,7 +760,7 @@ def add_odk_column(df, expected_letter, invert=False):
     df.insert(
         1,
         "ODK",
-        df[COLUMN_POSSESION].apply(
+        df[COLUMN_POSS].apply(
             lambda x: d_char if x.startswith(expected_letter) else o_char
         ),
     )
@@ -725,7 +804,7 @@ def add_gn_ls(df: pd.DataFrame) -> pd.DataFrame:
         current_yard_ln = df.loc[i, "YARD LN"]
         previous_yard_ln = df.loc[i - 1, "YARD LN"]
 
-        if df.loc[i, COLUMN_POSSESION] == df.loc[i - 1, COLUMN_POSSESION]:
+        if df.loc[i, COLUMN_POSS] == df.loc[i - 1, COLUMN_POSS]:
             # Umwandeln in positive Werte
             previous_value = abs(previous_yard_ln)
             current_value = abs(current_yard_ln)
@@ -759,9 +838,9 @@ def add_score_column(
     df: pd.DataFrame, scout_team: str, opponent_team: str
 ) -> pd.DataFrame:
     # Neue Spalten mit 0 initialisieren
-    df["SCORE_SCOUT"] = 0
-    df["SCORE_OPP"] = 0
-    df["SCORE_DIFF"] = 0  # Neue Spalte für die Differenz
+    df[COLUMN_SCORE_DIFF] = 0
+    df[COLUMN_SCORE_OPP] = 0
+    df[COLUMN_SCORE_SCOUT] = 0  # Neue Spalte für die Differenz
 
     # Score erhöhen
     score_scout = 0
@@ -798,11 +877,11 @@ def add_score_column(
                 score_opp += 2
 
         # Punkte für 'TD', 'GOOD', 'SAFETY' und 'TPC' zusammenfassen
-        df.at[index, "SCORE_SCOUT"] = score_scout
-        df.at[index, "SCORE_OPP"] = score_opp
+        df.at[index, COLUMN_SCORE_SCOUT] = score_scout
+        df.at[index, COLUMN_SCORE_OPP] = score_opp
 
         # SCORE_DIFF berechnen
-        df.at[index, "SCORE_DIFF"] = score_scout - score_opp
+        df.at[index, COLUMN_SCORE_DIFF] = score_scout - score_opp
 
     return df
 
@@ -854,7 +933,7 @@ def transform_play_types(expected_team: str, df: pd.DataFrame) -> pd.DataFrame:
     }
 
     # Bedingung anwenden und Mapping durchführen
-    mask = df[COLUMN_POSSESION] != expected_team
+    mask = df[COLUMN_POSS] != expected_team
     df.loc[mask, COLUMN_PLAY_TYPE] = df.loc[mask, COLUMN_PLAY_TYPE].replace(
         play_type_mapping
     )
@@ -1153,7 +1232,7 @@ def main():
                 df_home = rename_player_columns(df_home)
                 df_home = add_score_column(df_home, short_home, short_visitors)
                 df_home = transform_to_short_team_code(df_home, short_team_map)
-                st.dataframe(df_home)
+                st.dataframe(df_home[VIEW_TARGET])
 
             with tab2:
                 df_away = add_odk_column(df, expected_letter, invert=True)
@@ -1166,7 +1245,7 @@ def main():
                 df_away = rename_player_columns(df_away)
                 df_away = add_score_column(df_away, short_visitors, short_home)
                 df_away = transform_to_short_team_code(df_away, short_team_map)
-                st.dataframe(df_away)
+                st.dataframe(df_away[VIEW_TARGET])
 
     else:
         st.write("Kein Text gefunden oder Fehler beim Extrahieren.")
