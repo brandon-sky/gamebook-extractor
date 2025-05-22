@@ -425,7 +425,9 @@ def add_penalty_columns(df: pd.DataFrame) -> pd.DataFrame:
     def extract_penalty_team(details):
         if not isinstance(details, str):
             return None
-        match = re.search(r'((?:[A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,2})\s+penalty)', details)
+        match = re.search(
+            r"((?:[A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,2})\s+penalty)", details
+        )
         if match:
             return match.group(1).strip()  # Entferne überflüssige Leerzeichen
         return None
@@ -433,7 +435,7 @@ def add_penalty_columns(df: pd.DataFrame) -> pd.DataFrame:
     def extract_penalty_type(details):
         if not isinstance(details, str):
             return None
-        match = re.search(r'penalty[\W_]*(?=[A-Z]+)([A-Z]+)', details)
+        match = re.search(r"penalty[\W_]*(?=[A-Z]+)([A-Z]+)", details)
         return match.group(1) if match else None
 
     df = df.copy()
@@ -860,7 +862,9 @@ def transform_play_types(expected_team: str, df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def transform_to_short_team_code(df: pd.DataFrame, short_team_map: dict) -> pd.DataFrame:
+def transform_to_short_team_code(
+    df: pd.DataFrame, short_team_map: dict
+) -> pd.DataFrame:
     """
     Ersetzt die Teamnamen in der Spalte "PEN O/D" des DataFrames basierend auf einem Mapping.
 
@@ -877,11 +881,22 @@ def transform_to_short_team_code(df: pd.DataFrame, short_team_map: dict) -> pd.D
         Der aktualisierte DataFrame mit den ersetzten Teamnamen in der Spalte "PEN O/D".
     """
     # Ersetzen der Teamnamen in der Spalte "PEN O/D"
-    df['PEN O/D'] = df['PEN O/D'].apply(lambda team_string: 
-                                         next((short_code for full_name, short_code in short_team_map.items() 
-                                                if full_name in team_string), team_string) 
-                                         if team_string is not None else team_string)
+    df["PEN O/D"] = df["PEN O/D"].apply(
+        lambda team_string: (
+            next(
+                (
+                    short_code
+                    for full_name, short_code in short_team_map.items()
+                    if full_name in team_string
+                ),
+                team_string,
+            )
+            if team_string is not None
+            else team_string
+        )
+    )
     return df
+
 
 def create_team_dataframe(game_data: dict, team: str) -> pd.DataFrame:
     """
