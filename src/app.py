@@ -464,7 +464,7 @@ def split_penalty_rows(df: pd.DataFrame) -> pd.DataFrame:
         new_rows.append(row.copy())
 
         # Bedingung prüfen
-        if "penalty:" in row["Details"].lower():
+        if "penalty" in row["Details"].lower():
             penalty_row = row.copy()
             # penalty_row['ODK'] = row['ODK']  # ggf. anpassen, falls ODK für Einordnung gebraucht wird
             penalty_row[COLUMN_RESULT] = "Penalty"  # Neue Markierung
