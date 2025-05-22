@@ -268,6 +268,44 @@ def add_result_column(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def verify_fumble(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Überprüft die "RESULT"-Spalte eines DataFrames auf den Begriff "Fumble" 
+    und passt den Wert basierend auf der "POSS"-Spalte an.
+
+    Wenn "Fumble" in der "RESULT"-Spalte gefunden wird, wird überprüft, 
+    ob sich der Wert in der "POSS"-Spalte im Vergleich zur nächsten Zeile ändert.
+    Wenn sich der Wert nicht ändert, wird "Fumble" durch einen entsprechenden 
+    Wert ersetzt (entweder 'Sack', 'Complete' oder 'Rush').
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame mit den Spalten "RESULT" und "POSS".
+
+    Returns
+    -------
+    pd.DataFrame
+        Der modifizierte DataFrame mit aktualisierten Werten in der "RESULT"-Spalte.
+    """
+    for index, row in df.iterrows():
+        current_result = row['RESULT'].lower()
+        if 'fumble' in current_result:
+            current_poss = row['POSS']
+            next_poss = df['POSS'].shift(-1).iloc[index]
+            print(f"{current_poss = }")
+            print(f"{next_poss = }")
+            if current_poss == next_poss:
+                if 'sack' in current_result:
+                    new_result = 'Sack'
+                elif 'complete' in current_result:
+                    new_result = 'Complete'
+                else:
+                    new_result = 'Rush'
+                df.at[index, 'RESULT'] = new_result
+    return df
+
+
 def add_kicking_yards_column(df: pd.DataFrame) -> pd.DataFrame:
     """
     Fügt eine neue Spalte "KickingYards" hinzu, die die Kicking Yards extrahiert.
@@ -1017,6 +1055,7 @@ def main():
                 .pipe(add_play_column)
                 .pipe(add_play_type)
                 .pipe(add_result_column)
+                .pipe(verify_fumble)
                 .pipe(add_kicking_yards_column)
                 .pipe(add_caught_on_column)
                 .pipe(fill_in_caught_on_column)
