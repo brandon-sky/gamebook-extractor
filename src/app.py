@@ -425,13 +425,15 @@ def add_penalty_columns(df: pd.DataFrame) -> pd.DataFrame:
     def extract_penalty_team(details):
         if not isinstance(details, str):
             return None
-        match = re.search(r"([A-Z][a-z]+ [A-Z][a-z]+) penalty:", details)
-        return match.group(1) if match else None
+        match = re.search(r'((?:[A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,2})\s+penalty)', details)
+        if match:
+            return match.group(1).strip()  # Entferne überflüssige Leerzeichen
+        return None
 
     def extract_penalty_type(details):
         if not isinstance(details, str):
             return None
-        match = re.search(r"penalty: '([^']+)'", details)
+        match = re.search(r'penalty[\W_]*(?=[A-Z]+)([A-Z]+)', details)
         return match.group(1) if match else None
 
     df = df.copy()
@@ -858,6 +860,29 @@ def transform_play_types(expected_team: str, df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def transform_to_short_team_code(df: pd.DataFrame, short_team_map: dict) -> pd.DataFrame:
+    """
+    Ersetzt die Teamnamen in der Spalte "PEN O/D" des DataFrames basierend auf einem Mapping.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Der DataFrame, in dem die Ersetzungen vorgenommen werden.
+    short_team_map : dict
+        Ein Dictionary, das die vollständigen Teamnamen als Schlüssel und die kurzen Teamnamen als Werte enthält.
+
+    Returns
+    -------
+    pd.DataFrame
+        Der aktualisierte DataFrame mit den ersetzten Teamnamen in der Spalte "PEN O/D".
+    """
+    # Ersetzen der Teamnamen in der Spalte "PEN O/D"
+    df['PEN O/D'] = df['PEN O/D'].apply(lambda team_string: 
+                                         next((short_code for full_name, short_code in short_team_map.items() 
+                                                if full_name in team_string), team_string) 
+                                         if team_string is not None else team_string)
+    return df
+
 def create_team_dataframe(game_data: dict, team: str) -> pd.DataFrame:
     """
     Erstellt ein flaches DataFrame für ein Team ('home' oder 'visitors').
@@ -1112,9 +1137,7 @@ def main():
                 df_home = enrich_player_numbers(df_home, players)
                 df_home = rename_player_columns(df_home)
                 df_home = add_score_column(df_home, short_home, short_visitors)
-                df_home[COLUMN_PENALTY_OD].replace(
-                    short_team_map, regex=True, inplace=True
-                )
+                df_home = transform_to_short_team_code(df_home, short_team_map)
                 st.dataframe(df_home)
 
             with tab2:
@@ -1127,9 +1150,7 @@ def main():
                 df_away = enrich_player_numbers(df_away, players)
                 df_away = rename_player_columns(df_away)
                 df_away = add_score_column(df_away, short_visitors, short_home)
-                df_away[COLUMN_PENALTY_OD].replace(
-                    short_team_map, regex=True, inplace=True
-                )
+                df_away = transform_to_short_team_code(df_away, short_team_map)
                 st.dataframe(df_away)
 
     else:
