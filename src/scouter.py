@@ -19,7 +19,9 @@ CALL_COUNTS = {}
 ## Patterns
 PATTERN_SPLIT_DRIVE = r"Spot:\s+\w+\s+Clock:\s+\d{2}:\d{2}\s+Drive:\s+"
 PATTERN_SPLIT_QUARTER = r"Play-by-Play Summary \([1-5] Quarter\)"
-PATTERN_SUMMARY = r"\s*Plays\s+\d+\s+Yards\s+[-]?\d+\s+TOP\s+\d{2}:\d{2}\s+SCORE\s*[\d-]*"
+PATTERN_SUMMARY = (
+    r"\s*Plays\s+\d+\s+Yards\s+[-]?\d+\s+TOP\s+\d{2}:\d{2}\s+SCORE\s*[\d-]*"
+)
 
 # Logger
 logger = logging.getLogger(__name__)
@@ -171,7 +173,9 @@ def drive_summary_not_in_string(input_string: str) -> bool:
 
 
 def extract_plays_count(text):
-    PATTERN_SUMMARY = r"\s*Plays\s+(\d+)\s+Yards\s+[-]?\d+\s+TOP\s+\d{2}:\d{2}\s+SCORE\s*[\d-]*"
+    PATTERN_SUMMARY = (
+        r"\s*Plays\s+(\d+)\s+Yards\s+[-]?\d+\s+TOP\s+\d{2}:\d{2}\s+SCORE\s*[\d-]*"
+    )
     match = re.search(PATTERN_SUMMARY, text)
     if match:
         return int(match.group(1))
@@ -664,10 +668,14 @@ def count_valid_entries(entries):
     for entry in entries:
         details = entry.get("Details", "")
         down_distance = entry.get("Down&Distance", "")
-        
-        if "no-play" not in details.lower() and down_distance and "timeout" not in details.lower():
+
+        if (
+            "no-play" not in details.lower()
+            and down_distance
+            and "timeout" not in details.lower()
+        ):
             count += 1
-            
+
     return count
 
 
