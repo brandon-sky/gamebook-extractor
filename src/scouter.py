@@ -17,7 +17,7 @@ PATH_JSON = "data/interim/stats_pwss2402.json"
 CALL_COUNTS = {}
 
 ## Patterns
-PATTERN_SPLIT_DRIVE = r"Spot:\s+\w+\s+Clock:\s+\d{2}:\d{2}\s+Drive:\s+"
+PATTERN_SPLIT_DRIVE = r"Spot:\n\w+\d+\nClock:\n\d{2}:\d{2}\nDrive:\s+"
 PATTERN_SPLIT_QUARTER = r"Play-by-Play Summary \([1-5] Quarter\)"
 PATTERN_SUMMARY = (
     r"\s*Plays\s+\d+\s+Yards\s+[-]?\d+\s+TOP\s+\d{2}:\d{2}\s+SCORE\s*[\d-]*"
@@ -531,15 +531,15 @@ def parse_table_data(
 def parse_page_one(page_one: str, doc: dict) -> dict:
     meta, rest = page_one.split("Score by Quarters")
     score_quarters, rest = rest.split("Scoring Plays")
-    scoring_plays, rest = rest.split("Field\nGoals")
+    # scoring_plays, rest = rest.split("Field\nGoals")
     field_goals, rest = rest.split("Officials")
     officials, weather = rest.split("Weather\n")
 
     doc["meta"] = _parse_metadata(meta, weather)
     doc["score_board"] = parse_scoreboard(score_quarters)
     doc["officials"] = parse_officials(officials)
-    doc["touchdowns"] = parse_table_data(scoring_plays.split("Team")[1], 6)
-    doc["field_goals"] = parse_table_data(field_goals.split("Team")[1], 6)
+    doc["touchdowns"] = parse_table_data(field_goals.split("Team")[1], 6)
+    # doc["field_goals"] = parse_table_data(field_goals.split("Team")[1], 6)
     return doc
 
 
@@ -629,6 +629,9 @@ def merge_lists(list1, list2):
 def extract_entries(text, drive_no, quarter):
     pattern_drive_summary = (
         r"\s*Plays\s+\d+\s+Yards\s+-?\d+\s+TOP\s+\d{2}:\d{2}\s+SCORE\s*[\d-]*"
+    )
+    pattern_drive_summary = (
+        r"\s*Plays\s*\n\d+\nYards\s*\n-?\d+\nTOP\s*\n\d{1,2}:\d{2}\nSCORE\s*[\d-]*"
     )
     pattern_part_team = r"([A-Za-z]{2,3})"
     pattern_part_down_distance = r"([0-9]{1,2}&[0-9]{1,2})?"
@@ -754,12 +757,13 @@ def parse_last_pages(pages: str, doc: dict) -> dict:
             drive_no = get_drive_number(
                 drive_index, quarter_no, drive, previous_drive_no
             )
-
             print(f"Drive: {drive_no}".center(79, "-"))
             print(f"check for summary: {drive_summary_not_in_string(drive)}")
             summary_in_drive = drive_summary_not_in_string(drive)
-            drive = drive.split("Plays")[0]
+            # drive = drive.split("Plays")[0]
+            print({"Inhalt": drive})
             plays = extract_entries(drive, quarter=quarter_no, drive_no=drive_no)
+            print(plays[0])
             if not summary_in_drive:
                 if "kickoff" not in drive:
                     cache_plays = plays
