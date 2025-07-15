@@ -176,9 +176,9 @@ def drive_summary_not_in_string(input_string: str) -> bool:
 
 
 def extract_plays_count(text):
-    PATTERN_SUMMARY = (
-        r"\s*Plays\s+(\d+)\s+Yards\s+[-]?\d+\s+TOP\s+\d{2}:\d{2}\s+SCORE\s*[\d-]*"
-    )
+    # PATTERN_SUMMARY = (
+    #     r"\s*Plays\s+(\d+)\s+Yards\s+[-]?\d+\s+TOP\s+\d{2}:\d{2}\s+SCORE\s*[\d-]*"
+    # )
     match = re.search(PATTERN_SUMMARY, text)
     if match:
         return int(match.group(1))
@@ -754,8 +754,6 @@ def parse_last_pages(pages: str, doc: dict) -> dict:
         drive_list = re.split(PATTERN_SPLIT_DRIVE, quarter_str)
 
         for drive_index, drive in enumerate(drive_list[1:]):
-            print(f"{drive_index =}")
-            print(f"{drive =}")
             drive_no = get_drive_number(
                 drive_index, quarter_no, drive, previous_drive_no
             )
@@ -763,30 +761,31 @@ def parse_last_pages(pages: str, doc: dict) -> dict:
             summary_in_drive = drive_summary_not_in_string(drive)
             print(f"check for summary: {summary_in_drive}")
             # drive = drive.split("Plays")[0]
-            # plays = extract_entries(drive, quarter=quarter_no, drive_no=drive_no)
-            # if not summary_in_drive:
-            #     print("no summary in drive")
-            #     if "kickoff" not in drive:
-            #         cache_plays = plays
-            #         cache_drive_no = drive_no
-            #         continue
-            # documented_plays = extract_plays_count(drive)
+            print(f"{drive =}")
+            plays = extract_entries(drive, quarter=quarter_no, drive_no=drive_no)
+            if not summary_in_drive:
+                print("no summary in drive")
+                if "kickoff" not in drive:
+                    cache_plays = plays
+                    cache_drive_no = drive_no
+                    continue
+            documented_plays = extract_plays_count(drive)
             # # print("Inhalt")
             # # print(documented_plays)
             # # drive = drive.split("Plays")[0]
 
-            # if cache_plays is not None:
-            #     cache_plays.extend(plays)
-            #     plays = cache_plays
-            #     drive_no = cache_drive_no
-            #     cache_plays = None
-            # previous_drive_no = drive_no
+            if cache_plays is not None:
+                cache_plays.extend(plays)
+                plays = cache_plays
+                drive_no = cache_drive_no
+                cache_plays = None
+            previous_drive_no = drive_no
 
-            # print(plays)
+            print(plays)
 
-            # print(f"{documented_plays =}")
-            # print(f"{count_valid_entries(plays) =}")
-            # doc["drives"][f"Drive {str(drive_no).zfill(2)}"] = plays
+            print(f"{documented_plays =}")
+            print(f"{count_valid_entries(plays) =}")
+            doc["drives"][f"Drive {str(drive_no).zfill(2)}"] = plays
 
     return doc
 
