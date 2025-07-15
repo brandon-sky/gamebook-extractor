@@ -68,6 +68,12 @@ COLUMN_SCOUT = "SCOUT"
 COLUMN_OPPONENT = "OPPONENT"
 COLUMN_DETAILS = "Details"
 
+# Values
+VALUE_RESULT_PENALTY = "Penalty"
+
+# Search keys in details
+SEARCH_KEY_PENALTY = "penalty"
+
 # Target view
 VIEW_TARGET = [
     COLUMN_PLAY_NUMBER,
@@ -112,6 +118,10 @@ VIEW_TARGET = [
     COLUMN_OPPONENT,
     COLUMN_DETAILS,
 ]
+
+# Pattern
+PATTERN_PENALTY_TEAM = r"on\s+(\w+)\s*(?:\(|-|\d)"
+PATTERN_PENALTY_TYPE = r":\s*(.*?)\s*\bon\b"
 
 
 # Func
@@ -507,7 +517,7 @@ def add_penalty_columns(df: pd.DataFrame) -> pd.DataFrame:
         if not isinstance(details, str):
             return None
         match = re.search(
-            r"((?:[A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,2})\s+penalty)", details
+            PATTERN_PENALTY_TEAM, details #TODO: mapping Team-Name -> Team-Abkürzung 
         )
         if match:
             return match.group(1).strip()  # Entferne überflüssige Leerzeichen
@@ -516,7 +526,7 @@ def add_penalty_columns(df: pd.DataFrame) -> pd.DataFrame:
     def extract_penalty_type(details):
         if not isinstance(details, str):
             return None
-        match = re.search(r"penalty[\W_]*(?=[A-Z]+)([A-Z]+)", details)
+        match = re.search(PATTERN_PENALTY_TYPE, details)
         return match.group(1) if match else None
 
     df = df.copy()
@@ -543,20 +553,13 @@ def split_penalty_rows(df: pd.DataFrame) -> pd.DataFrame:
         new_rows.append(row.copy())
 
         # Bedingung prüfen
-        if "penalty" in row["Details"].lower():
+        if SEARCH_KEY_PENALTY in row[COLUMN_DETAILS].lower():
             penalty_row = row.copy()
-            # penalty_row['ODK'] = row['ODK']  # ggf. anpassen, falls ODK für Einordnung gebraucht wird
-            penalty_row[COLUMN_RESULT] = "Penalty"  # Neue Markierung
-            # penalty_row['ODK'] = 'S'
-            penalty_row["Series"] = None
-            penalty_row["YARD LN"] = None
-            penalty_row["DN"] = None
-            penalty_row["DIST"] = None
-
-            # # Wenn "Penalty (Pending)", dann original leeren
-            # if "no-play" not in row['Details'].lower():
-            #     new_rows[-1][COLUMN_PEN_OD] = None
-            #     new_rows[-1][COLUMN_PENALTY] = None
+            penalty_row[COLUMN_RESULT] = VALUE_RESULT_PENALTY
+            penalty_row["Series"] = None #TODO: Sherlock!
+            penalty_row[COLUMN_YARD_LN] = None
+            penalty_row[COLUMN_DN] = None
+            penalty_row[COLUMN_DIST] = None
 
             new_rows.append(penalty_row)
 
