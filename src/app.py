@@ -176,12 +176,12 @@ def transform_yardline(df: pd.DataFrame) -> pd.DataFrame:
     :return: DataFrame mit transformierter "YardLine"
     """
 
-    def convert_yardline(row):
+    def convert_yardline(row): #TODO: mit regex arbeiten
         if isinstance(row["YardLine"], str) and "@" in row["YardLine"]:
             parts = row["YardLine"].split()
             if len(parts) == 2 and row["Index"].strip() == parts[1][:2]:
-                return -1 * int(parts[1][2:])
-            return int(parts[1][2:])
+                return -1 * int(parts[1][3:])
+            return int(parts[1][3:]) 
         return row["YardLine"]
 
     df["YardLine"] = df.apply(convert_yardline, axis=1)
@@ -1195,6 +1195,7 @@ def main():
             )
 
             visitors = doc.get("score_board")[0].get("Team")
+            print(f"{visitors = }")
             home = doc.get("score_board")[1].get("Team")
             expected_letter = home[0].upper()
 
